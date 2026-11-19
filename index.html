@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>NomadCost — Global Currency & Cost of Living Explorer</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson-client/3.1.0/topojson-client.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>
 :root{--bg:#04060e;--surface:#0a0f1e;--surface2:#111830;--surface3:#182040;--text:#e0e6f0;--dim:#5a6a8a;--neon:#00e5ff;--neon2:#7c4dff;--neon3:#ff4081;--neong:#39ff14;--neony:#ffe600;--neonp:#e040fb;--red:#ff1744;--orange:#ff9100;--radius:10px;--font:'DM Sans',system-ui,sans-serif;--display:'Space Grotesk',sans-serif}
@@ -45,14 +43,7 @@ h2 .hl{color:var(--neon);text-shadow:0 0 20px rgba(0,229,255,.3)}
 /* MAP */
 #map-section{position:relative}
 .map-wrap{position:relative;border:1px solid rgba(0,229,255,.1);border-radius:16px;overflow:hidden;background:var(--surface);box-shadow:0 0 60px rgba(0,229,255,.05)}
-.map-wrap svg{width:100%;height:auto;display:block}
-.map-wrap .country-path{fill:var(--surface2);stroke:rgba(0,229,255,.12);stroke-width:.3;cursor:pointer;transition:fill .2s}
-.map-wrap .country-path:hover{fill:rgba(0,229,255,.15);stroke:var(--neon);stroke-width:.6}
-.map-wrap .country-path.active{fill:rgba(0,229,255,.25);stroke:var(--neon);stroke-width:.8}
-.map-wrap .country-path.has-data{fill:var(--surface3)}
-.map-wrap .pulse-dot{fill:var(--neon);opacity:.8}
-.map-wrap .pulse-ring{fill:none;stroke:var(--neon);opacity:0;animation:pulse 2s ease-out infinite}
-@keyframes pulse{0%{r:2;opacity:.6}100%{r:12;opacity:0}}
+.map-wrap canvas{width:100%;height:auto;display:block;cursor:crosshair}
 .map-tooltip{position:absolute;background:var(--surface);border:1px solid rgba(0,229,255,.2);border-radius:8px;padding:.6rem .9rem;font-size:.82rem;pointer-events:none;display:none;z-index:10;box-shadow:0 0 20px rgba(0,229,255,.1)}
 .scan-line{position:absolute;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--neon),transparent);opacity:.3;animation:scanV 4s ease-in-out infinite}
 @keyframes scanV{0%{top:0}50%{top:100%}100%{top:0}}
@@ -195,7 +186,7 @@ footer a{color:var(--neon);text-decoration:none}
   <p class="sub">Click any country to explore. Neon dots mark countries with detailed cost data.</p>
   <div class="map-wrap" id="map-wrap">
     <div class="scan-line"></div>
-    <svg id="world-map" viewBox="0 0 960 500"></svg>
+    <canvas id="world-map"></canvas>
     <div class="map-tooltip" id="map-tip"></div>
   </div>
 </section>
@@ -222,7 +213,8 @@ footer a{color:var(--neon);text-decoration:none}
   <h2>Visa <span class="hl">Explorer</span></h2>
   <p class="sub">See which countries offer visa-free entry, visa on arrival, or require advance application — for Indian passport holders.</p>
   <div class="visa-bar">
-    <select id="visa-from"><option value="India">I'm from: India</option></select>
+    <select id="visa-from"></select>
+    <span id="visa-note" style="font-size:.78rem;color:var(--dim)"></span>
   </div>
   <div class="visa-grid" id="visa-grid"></div>
 </section>
@@ -310,45 +302,114 @@ async function fetchRates(){
   init();
 }
 
-// ===== WORLD MAP =====
-async function drawMap(){
-  try{
-    const w=960,h=500;
-    const svg=d3.select('#world-map');
-    const proj=d3.geoNaturalEarth1().scale(155).translate([w/2,h/2]);
-    const path=d3.geoPath().projection(proj);
-    const data=await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
-    const countries=topojson.feature(data,data.objects.countries);
-    const isoMap={};COUNTRIES.forEach(c=>{isoMap[c.iso]=c});
-    const tip=$('map-tip');
+// ===== CONSTELLATION WORLD MAP (No external deps) =====
+const COORDS={IND:[20,78],THA:[15,100],VNM:[16,108],IDN:[-2,118],MYS:[4,109],PHL:[12,122],KHM:[12,105],NPL:[28,84],LKA:[7,80],JPN:[36,138],KOR:[37,127],SGP:[1,104],TWN:[24,121],CHN:[35,105],BGD:[24,90],MMR:[20,96],LAO:[18,105],MNG:[47,105],MDV:[3,73],PAK:[30,70],TUR:[39,35],GEO:[42,44],PRT:[39,-8],DEU:[51,10],GBR:[54,-2],FRA:[46,2],ESP:[40,-4],ITA:[42,12],NLD:[52,5],SWE:[62,15],NOR:[62,10],CHE:[47,8],CZE:[50,15],POL:[52,20],HUN:[47,19],ROU:[46,25],GRC:[39,22],HRV:[45,16],BGR:[43,25],EST:[59,26],IRL:[53,-8],AUT:[47,14],DNK:[56,10],BEL:[51,4],USA:[38,-97],CAN:[56,-106],MEX:[23,-102],COL:[4,-72],ARG:[-34,-64],BRA:[-15,-47],PER:[-10,-76],CHL:[-35,-71],ECU:[-2,-78],CRI:[10,-84],BOL:[-17,-65],URY:[-33,-56],PAN:[9,-80],EGY:[27,30],MAR:[32,-5],ZAF:[-29,24],KEN:[-1,37],TZA:[-6,35],GHA:[8,-1],ETH:[9,38],NGA:[10,8],TUN:[34,9],ARE:[24,54],SAU:[24,45],QAT:[25,51],OMN:[21,57],BHR:[26,50],JOR:[31,36],ISR:[31,35],AUS:[-25,134],NZL:[-41,174],FJI:[-18,179]};
 
-    svg.selectAll('path').data(countries.features).enter().append('path')
-      .attr('d',path).attr('class',d=>{const iso=isoToA3(+d.id);return'country-path'+(isoMap[iso]?' has-data':'')})
-      .on('mouseenter',(e,d)=>{
-        const iso=isoToA3(+d.id);const c=isoMap[iso];
-        if(c){tip.style.display='block';tip.innerHTML=`${c.flag} <strong>${c.name}</strong><br>\u20B9${fmt(mi(c))}/mo | ${c.visa==='Free'?'Visa Free':c.visa==='Arrival'?'On Arrival':'Visa Required'}`}
-        else{const name=d.properties?.name||'Unknown';tip.style.display='block';tip.innerHTML=`<strong>${name}</strong><br>Data coming soon`}
-      })
-      .on('mousemove',e=>{const r=$('map-wrap').getBoundingClientRect();tip.style.left=(e.clientX-r.left+15)+'px';tip.style.top=(e.clientY-r.top-10)+'px'})
-      .on('mouseleave',()=>{tip.style.display='none'})
-      .on('click',(e,d)=>{const iso=isoToA3(+d.id);const c=isoMap[iso];if(c)showDetail(c.name)});
+let mapDots=[];let mapHover=null;let scanY=0;
 
-    // Neon pulse dots for countries with data
-    COUNTRIES.filter(c=>c.code!=='INR').forEach(c=>{
-      const coords=proj([getCoords(c.iso)[1],getCoords(c.iso)[0]]);
-      if(!coords)return;
-      const g=svg.append('g');
-      g.append('circle').attr('class','pulse-ring').attr('cx',coords[0]).attr('cy',coords[1]).attr('r',2).style('animation-delay',Math.random()*2+'s');
-      g.append('circle').attr('class','pulse-dot').attr('cx',coords[0]).attr('cy',coords[1]).attr('r',2);
+function latLngToXY(lat,lng,w,h){return[(lng+180)/360*w,(90-lat)/180*h]}
+
+function drawMap(){
+  const canvas=$('world-map');
+  const wrap=$('map-wrap');
+  const W=wrap.clientWidth;const H=Math.round(W*0.48);
+  canvas.width=W*2;canvas.height=H*2;
+  canvas.style.width=W+'px';canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d');
+  ctx.scale(2,2);
+
+  // Build dot positions
+  mapDots=[];
+  COUNTRIES.forEach(c=>{
+    const co=COORDS[c.iso];if(!co)return;
+    const[x,y]=latLngToXY(co[0],co[1],W,H);
+    const cost=mi(c);
+    const color=c.code==='INR'?'#ffe600':cost<30000?'#39ff14':cost<80000?'#00e5ff':'#ff4081';
+    mapDots.push({x,y,c,color,r:c.code==='INR'?6:4});
+  });
+
+  let frame=0;
+  function render(){
+    frame++;
+    ctx.clearRect(0,0,W,H);
+
+    // Grid lines
+    ctx.strokeStyle='rgba(0,229,255,.03)';ctx.lineWidth=.5;
+    for(let i=0;i<W;i+=W/18){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke()}
+    for(let i=0;i<H;i+=H/9){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke()}
+
+    // Connection lines between nearby countries
+    ctx.strokeStyle='rgba(0,229,255,.06)';ctx.lineWidth=.5;
+    for(let i=0;i<mapDots.length;i++){
+      for(let j=i+1;j<mapDots.length;j++){
+        const dx=mapDots[i].x-mapDots[j].x,dy=mapDots[i].y-mapDots[j].y;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<W*0.12){ctx.beginPath();ctx.moveTo(mapDots[i].x,mapDots[i].y);ctx.lineTo(mapDots[j].x,mapDots[j].y);ctx.stroke()}
+      }
+    }
+
+    // Scan line
+    scanY=(scanY+.3)%H;
+    const grad=ctx.createLinearGradient(0,scanY-2,0,scanY+2);
+    grad.addColorStop(0,'transparent');grad.addColorStop(.5,'rgba(0,229,255,.15)');grad.addColorStop(1,'transparent');
+    ctx.fillStyle=grad;ctx.fillRect(0,scanY-2,W,4);
+
+    // Dots
+    mapDots.forEach((d,i)=>{
+      const pulse=Math.sin(frame*.03+i)*.5+.5;
+      // Outer glow
+      ctx.beginPath();ctx.arc(d.x,d.y,d.r+4+pulse*3,0,Math.PI*2);
+      ctx.fillStyle=d.color.replace(')',',0.06)').replace('rgb','rgba').replace('#','');
+      const gc=ctx.createRadialGradient(d.x,d.y,0,d.x,d.y,d.r+6+pulse*3);
+      gc.addColorStop(0,d.color+'22');gc.addColorStop(1,'transparent');
+      ctx.fillStyle=gc;ctx.fill();
+      // Core dot
+      ctx.beginPath();ctx.arc(d.x,d.y,d.r+(d===mapHover?2:0),0,Math.PI*2);
+      ctx.fillStyle=d===mapHover?'#ffffff':d.color;
+      ctx.shadowColor=d.color;ctx.shadowBlur=d===mapHover?15:8;
+      ctx.fill();ctx.shadowBlur=0;
+      // Label on hover
+      if(d===mapHover){
+        ctx.font='600 11px "DM Sans",sans-serif';ctx.fillStyle='#fff';ctx.textAlign='center';
+        ctx.fillText(d.c.flag+' '+d.c.name,d.x,d.y-14);
+        ctx.font='400 9px "DM Sans",sans-serif';ctx.fillStyle='#aaa';
+        ctx.fillText('\u20B9'+fmt(mi(d.c))+'/mo',d.x,d.y-4);
+      }
     });
-  }catch(e){console.error('Map load failed:',e);$('map-wrap').innerHTML='<p style="text-align:center;padding:3rem;color:var(--dim)">Map loading failed. Please check your internet connection.</p>'}
+
+    // Legend
+    ctx.font='500 10px "DM Sans",sans-serif';
+    const ly=H-15;
+    [{c:'#ffe600',t:'India (Home)'},{c:'#39ff14',t:'Cheap (<30K)'},{c:'#00e5ff',t:'Medium'},{c:'#ff4081',t:'Expensive (80K+)'}].forEach((l,i)=>{
+      const lx=10+i*120;
+      ctx.beginPath();ctx.arc(lx,ly,4,0,Math.PI*2);ctx.fillStyle=l.c;ctx.shadowColor=l.c;ctx.shadowBlur=6;ctx.fill();ctx.shadowBlur=0;
+      ctx.fillStyle='#8899bb';ctx.textAlign='left';ctx.fillText(l.t,lx+8,ly+3);
+    });
+
+    requestAnimationFrame(render);
+  }
+  render();
+
+  // Mouse interaction
+  const tip=$('map-tip');
+  canvas.addEventListener('mousemove',e=>{
+    const rect=canvas.getBoundingClientRect();
+    const mx=(e.clientX-rect.left)*(W/rect.width);
+    const my=(e.clientY-rect.top)*(H/rect.height);
+    let found=null;
+    for(const d of mapDots){const dx=d.x-mx,dy=d.y-my;if(Math.sqrt(dx*dx+dy*dy)<12){found=d;break}}
+    mapHover=found;
+    if(found){
+      canvas.style.cursor='pointer';
+      tip.style.display='block';
+      tip.innerHTML=`${found.c.flag} <strong>${found.c.name}</strong><br>\u20B9${fmt(mi(found.c))}/mo | ${found.c.visa==='Free'?'Visa Free':found.c.visa==='Arrival'?'On Arrival':'Visa Required'}<br><span style="font-size:.7rem;color:var(--dim)">Click for details</span>`;
+      tip.style.left=(e.clientX-wrap.getBoundingClientRect().left+15)+'px';
+      tip.style.top=(e.clientY-wrap.getBoundingClientRect().top-10)+'px';
+    }else{canvas.style.cursor='crosshair';tip.style.display='none'}
+  });
+  canvas.addEventListener('click',()=>{if(mapHover)showDetail(mapHover.c.name)});
+  canvas.addEventListener('mouseleave',()=>{mapHover=null;tip.style.display='none'});
 }
-
-// ISO numeric to alpha-3
-function isoToA3(n){const m={4:'AFG',8:'ALB',12:'DZA',24:'AGO',32:'ARG',36:'AUS',40:'AUT',50:'BGD',56:'BEL',64:'BTN',68:'BOL',76:'BRA',100:'BGR',104:'MMR',116:'KHM',120:'CMR',124:'CAN',144:'LKA',152:'CHL',156:'CHN',170:'COL',188:'CRI',191:'HRV',196:'CYP',203:'CZE',208:'DNK',218:'ECU',818:'EGY',231:'ETH',233:'EST',242:'FJI',246:'FIN',250:'FRA',266:'GAB',276:'DEU',288:'GHA',300:'GRC',320:'GTM',356:'IND',360:'IDN',364:'IRN',368:'IRQ',372:'IRL',376:'ISR',380:'ITA',392:'JPN',400:'JOR',404:'KEN',410:'KOR',414:'KWT',418:'LAO',422:'LBN',434:'LBY',458:'MYS',462:'MDV',484:'MEX',496:'MNG',504:'MAR',508:'MOZ',524:'NPL',528:'NLD',554:'NZL',566:'NGA',578:'NOR',512:'OMN',586:'PAK',591:'PAN',604:'PER',608:'PHL',616:'POL',620:'PRT',634:'QAT',642:'ROU',643:'RUS',682:'SAU',702:'SGP',710:'ZAF',724:'ESP',752:'SWE',756:'CHE',158:'TWN',764:'THA',788:'TUN',792:'TUR',800:'UGA',784:'ARE',826:'GBR',840:'USA',858:'URY',704:'VNM',887:'YEM',894:'ZMB'};return m[n]||''}
-
-// Approximate lat/lng for pulse dots
-function getCoords(iso){const c={IND:[20,78],THA:[15,100],VNM:[16,108],IDN:[-2,118],MYS:[4,109],PHL:[12,122],KHM:[12,105],NPL:[28,84],LKA:[7,80],JPN:[36,138],KOR:[37,127],SGP:[1,104],TWN:[24,121],CHN:[35,105],BGD:[24,90],MMR:[20,96],LAO:[18,105],MNG:[47,105],MDV:[3,73],PAK:[30,70],TUR:[39,35],GEO:[42,44],PRT:[39,-8],DEU:[51,10],GBR:[54,-2],FRA:[46,2],ESP:[40,-4],ITA:[42,12],NLD:[52,5],SWE:[62,15],NOR:[62,10],CHE:[47,8],CZE:[50,15],POL:[52,20],HUN:[47,19],ROU:[46,25],GRC:[39,22],HRV:[45,16],BGR:[43,25],EST:[59,26],IRL:[53,-8],AUT:[47,14],DNK:[56,10],BEL:[51,4],USA:[38,-97],CAN:[56,-106],MEX:[23,-102],COL:[4,-72],ARG:[-34,-64],BRA:[-15,-47],PER:[-10,-76],CHL:[-35,-71],ECU:[-2,-78],CRI:[10,-84],BOL:[-17,-65],URY:[-33,-56],PAN:[9,-80],EGY:[27,30],MAR:[32,-5],ZAF:[-29,24],KEN:[-1,37],TZA:[-6,35],GHA:[8,-1],ETH:[9,38],NGA:[10,8],TUN:[34,9],ARE:[24,54],SAU:[24,45],QAT:[25,51],OMN:[21,57],BHR:[26,50],JOR:[31,36],ISR:[31,35],AUS:[-25,134],NZL:[-41,174],FJI:[-18,179]};return c[iso]||[0,0]}
 
 // ===== CONVERTER =====
 function setupConv(){
@@ -371,14 +432,38 @@ function renderStats(){
 }
 
 // ===== VISA EXPLORER =====
+function setupVisa(){
+  const sel=$('visa-from');
+  const allCountries=[...COUNTRIES].sort((a,b)=>a.name.localeCompare(b.name));
+  allCountries.forEach(c=>{sel.innerHTML+=`<option value="${c.name}" ${c.name==='India'?'selected':''}>${c.flag} ${c.name}</option>`});
+  sel.onchange=renderVisa;
+  renderVisa();
+}
 function renderVisa(){
-  const free=COUNTRIES.filter(c=>c.visa==='Free'&&c.code!=='INR').sort((a,b)=>b.vdays-a.vdays);
-  const arr=COUNTRIES.filter(c=>c.visa==='Arrival').sort((a,b)=>b.vdays-a.vdays);
-  const req=COUNTRIES.filter(c=>c.visa==='Required').sort((a,b)=>a.name.localeCompare(b.name));
-  $('visa-grid').innerHTML=`
-    <div class="visa-col vfree"><h4>\u2705 Visa Free (${free.length})</h4>${free.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">${c.vdays}d</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
-    <div class="visa-col varr"><h4>\ud83d\udccb On Arrival (${arr.length})</h4>${arr.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">${c.vdays}d</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
-    <div class="visa-col vreq"><h4>\u26a0\ufe0f Visa Required (${req.length})</h4>${req.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><a href="https://en.wikipedia.org/wiki/Visa_requirements_for_Indian_citizens" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>`;
+  const from=$('visa-from').value;
+  const fromC=COUNTRIES.find(c=>c.name===from);
+  const wikiSlug=fromC?fromC.wiki:from;
+  const others=COUNTRIES.filter(c=>c.name!==from);
+
+  if(from==='India'){
+    $('visa-note').textContent='Showing visa requirements for Indian passport holders.';
+    const free=others.filter(c=>c.visa==='Free').sort((a,b)=>b.vdays-a.vdays);
+    const arr=others.filter(c=>c.visa==='Arrival').sort((a,b)=>b.vdays-a.vdays);
+    const req=others.filter(c=>c.visa==='Required').sort((a,b)=>a.name.localeCompare(b.name));
+    $('visa-grid').innerHTML=`
+      <div class="visa-col vfree"><h4>\u2705 Visa Free (${free.length})</h4>${free.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">${c.vdays}d</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
+      <div class="visa-col varr"><h4>\ud83d\udccb On Arrival (${arr.length})</h4>${arr.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">${c.vdays}d</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
+      <div class="visa-col vreq"><h4>\u26a0\ufe0f Visa Required (${req.length})</h4>${req.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><a href="https://en.wikipedia.org/wiki/Visa_requirements_for_Indian_citizens" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>`;
+  } else {
+    $('visa-note').innerHTML=`Detailed visa data available for India. For ${from}, showing general info. <a href="https://en.wikipedia.org/wiki/Visa_requirements_for_${wikiSlug.replace(/ /g,'_')}_citizens" target="_blank" style="color:var(--neon)">Check full visa list for ${from} \u2192</a>`;
+    const cheap=others.filter(c=>mi(c)<30000&&c.name!=='India').sort((a,b)=>mi(a)-mi(b));
+    const mid=others.filter(c=>mi(c)>=30000&&mi(c)<80000).sort((a,b)=>mi(a)-mi(b));
+    const exp=others.filter(c=>mi(c)>=80000).sort((a,b)=>mi(a)-mi(b));
+    $('visa-grid').innerHTML=`
+      <div class="visa-col vfree"><h4>\ud83d\udc9a Budget Friendly (${cheap.length})</h4>${cheap.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">\u20B9${fmt(mi(c))}/mo</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
+      <div class="visa-col varr"><h4>\ud83d\udc9b Moderate (${mid.length})</h4>${mid.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">\u20B9${fmt(mi(c))}/mo</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
+      <div class="visa-col vreq"><h4>\u2764\ufe0f Premium (${exp.length})</h4>${exp.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">\u20B9${fmt(mi(c))}/mo</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>`;
+  }
 }
 
 // ===== TABLE =====
@@ -496,7 +581,7 @@ function renderCharts(){
 
 // ===== INIT =====
 function init(){
-  setupConv();renderStats();renderVisa();renderTable();renderSurvival();setupFood();renderCharts();
+  setupConv();renderStats();setupVisa();renderTable();renderSurvival();setupFood();renderCharts();
   document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');cv=t.dataset.v;renderTable()});
   $('q').oninput=renderTable;$('rf').onchange=renderTable;$('sb').onchange=renderTable;
 }
