@@ -87,3 +87,46 @@ const COUNTRIES=[
 
 // Fallback exchange rates (approximate)
 const FALLBACK_RATES={THB:.42,VND:310,IDR:195,MYR:.055,PHP:.70,KHR:50,NPR:1.57,LKR:3.60,TRY:.42,GEL:.033,EUR:.011,MXN:.21,COP:52,ARS:14,BRL:.070,EGP:.59,MAD:.12,ZAR:.22,KES:1.55,AED:.044,JPY:1.85,KRW:16.5,GBP:.0096,USD:.012,CAD:.016,AUD:.019,NZD:.021,SGD:.016,CHF:.011,TWD:.39,CZK:.28,PLN:.049,HUF:4.6,RON:.057,INR:1,SAR:.045,QAR:.044,OMR:.0046,MVR:.18,CNY:.083,BDT:1.43,MMK:25.1,LAK:263,MNT:41,PKR:3.33,PEN:.045,CLP:11.5,CRC:6.2,BOB:.083,UYU:.50,BGN:.022,SEK:.13,NOK:.13,DKK:.083,BHD:.0045,JOD:.0085,ILS:.044,TZS:31.5,GHS:.18,ETB:1.5,NGN:19.5,TND:.038,FJD:.027,CRC:6.2};
+
+// Visa requirements FROM different passports
+// 'F'=Free, 'A'=Arrival, 'R'=Required. 'default' applies to all destinations not in exceptions.
+const VISA_FROM={
+'USA':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R',ETH:'A',MMR:'A',SAU:'A',IRN:'R'}},
+'UK':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R',ETH:'A',MMR:'A',SAU:'A'}},
+'Germany':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R',ETH:'A',MMR:'A',SAU:'A'}},
+'France':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R',ETH:'A',MMR:'A'}},
+'Spain':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R',ETH:'A'}},
+'Italy':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R',ETH:'A'}},
+'Netherlands':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R'}},
+'Japan':{d:'F',ex:{CHN:'R',RUS:'R',IND:'R',PAK:'R',BGD:'R',NGA:'R',ETH:'A',IRN:'R'}},
+'South Korea':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R'}},
+'Singapore':{d:'F',ex:{CHN:'R',RUS:'R',IND:'R',PAK:'R',BGD:'R',NGA:'R',SAU:'A'}},
+'Australia':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R',ETH:'A',USA:'A'}},
+'Canada':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R',ETH:'A'}},
+'New Zealand':{d:'F',ex:{CHN:'R',RUS:'R',IND:'A',PAK:'R',BGD:'R',NGA:'R'}},
+'UAE':{d:'F',ex:{CHN:'R',USA:'A',UK:'A',IND:'R',PAK:'R',BGD:'R',NGA:'R',IRN:'R',AUS:'A',CAN:'A',RUS:'R',ISR:'R'}},
+'Malaysia':{d:'F',ex:{CHN:'A',IND:'R',PAK:'R',BGD:'R',NGA:'R',USA:'F',UK:'F',AUS:'F',ISR:'R'}},
+'Turkey':{d:'F',ex:{CHN:'R',IND:'A',PAK:'A',BGD:'A',NGA:'A',USA:'A',UK:'F',AUS:'A',CAN:'A',ISR:'F'}},
+'Brazil':{d:'F',ex:{CHN:'R',IND:'R',PAK:'R',BGD:'R',NGA:'R',USA:'A',AUS:'A',CAN:'A',JPN:'F'}},
+'Mexico':{d:'F',ex:{CHN:'R',IND:'R',PAK:'R',BGD:'R',NGA:'R',AUS:'A',CAN:'A',RUS:'R'}},
+'Argentina':{d:'F',ex:{CHN:'R',IND:'R',PAK:'R',BGD:'R',NGA:'R',AUS:'A',CAN:'A',USA:'A'}},
+'South Africa':{d:'A',ex:{CHN:'R',USA:'F',UK:'F',DEU:'F',FRA:'F',AUS:'F',CAN:'F',JPN:'F',IND:'R',PAK:'R',BGD:'R'}},
+'Thailand':{d:'F',ex:{CHN:'A',IND:'A',PAK:'R',BGD:'R',NGA:'R',USA:'F',UK:'F',AUS:'F'}},
+'Philippines':{d:'F',ex:{CHN:'R',IND:'R',PAK:'R',BGD:'R',NGA:'R',USA:'F',UK:'F',AUS:'A'}},
+'Egypt':{d:'A',ex:{USA:'F',UK:'F',DEU:'F',FRA:'F',JPN:'F',IND:'R',PAK:'R',BGD:'R',NGA:'R',ISR:'R'}},
+'Nigeria':{d:'R',ex:{GHA:'F',KEN:'F',TZA:'F',ETH:'A',EGY:'A',MYS:'F',SGP:'A'}},
+'Pakistan':{d:'R',ex:{NPL:'F',MYS:'A',TUR:'A',KEN:'A',QAT:'A',OMN:'A',JOR:'A',MDV:'A',LKA:'F'}},
+'Bangladesh':{d:'R',ex:{NPL:'F',MYS:'A',TUR:'A',MDV:'A',LKA:'F',KEN:'A',OMN:'A',JOR:'A'}},
+'Nepal':{d:'R',ex:{IND:'F',LKA:'F',BGD:'F',MYS:'A',THA:'A',KHM:'A',LAO:'A',MDV:'A',TUR:'A',KEN:'A'}},
+'Sri Lanka':{d:'A',ex:{IND:'F',NPL:'F',SGP:'F',MYS:'F',THA:'A',KHM:'A',IDN:'F',PHL:'F',USA:'R',UK:'R',DEU:'R',FRA:'R',AUS:'R',CAN:'R',JPN:'R',CHN:'R'}},
+'China':{d:'R',ex:{THA:'A',KHM:'A',IDN:'F',MYS:'F',SGP:'F',JPN:'F',KOR:'F',UAE:'F',TUR:'A',QAT:'F',OMN:'A',EGY:'A',MAR:'F',TUN:'A',GEO:'F',FJI:'F',MDV:'A',LKA:'A',NPL:'A',IRN:'F'}},
+'India':{d:'_',ex:{}}
+};
+
+// Get visa status from one country to another
+function getVisaStatus(fromName, toISO){
+  const v=VISA_FROM[fromName];
+  if(!v) return null; // no data
+  if(v.ex[toISO]) return v.ex[toISO];
+  return v.d;
+}

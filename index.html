@@ -442,11 +442,13 @@ function setupVisa(){
 function renderVisa(){
   const from=$('visa-from').value;
   const fromC=COUNTRIES.find(c=>c.name===from);
-  const wikiSlug=fromC?fromC.wiki:from;
+  const wikiSlug=fromC?fromC.wiki:from.replace(/ /g,'_');
   const others=COUNTRIES.filter(c=>c.name!==from);
+  const hasMatrix=VISA_FROM[from];
 
   if(from==='India'){
-    $('visa-note').textContent='Showing visa requirements for Indian passport holders.';
+    // India has built-in visa data
+    $('visa-note').innerHTML=`Showing visa requirements for <strong>Indian</strong> passport holders.`;
     const free=others.filter(c=>c.visa==='Free').sort((a,b)=>b.vdays-a.vdays);
     const arr=others.filter(c=>c.visa==='Arrival').sort((a,b)=>b.vdays-a.vdays);
     const req=others.filter(c=>c.visa==='Required').sort((a,b)=>a.name.localeCompare(b.name));
@@ -454,15 +456,33 @@ function renderVisa(){
       <div class="visa-col vfree"><h4>\u2705 Visa Free (${free.length})</h4>${free.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">${c.vdays}d</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
       <div class="visa-col varr"><h4>\ud83d\udccb On Arrival (${arr.length})</h4>${arr.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">${c.vdays}d</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
       <div class="visa-col vreq"><h4>\u26a0\ufe0f Visa Required (${req.length})</h4>${req.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><a href="https://en.wikipedia.org/wiki/Visa_requirements_for_Indian_citizens" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>`;
+  } else if(hasMatrix){
+    // Country has visa matrix data
+    $('visa-note').innerHTML=`Showing visa requirements for <strong>${from}</strong> passport holders. <a href="https://en.wikipedia.org/wiki/Visa_requirements_for_${wikiSlug}_citizens" target="_blank" style="color:var(--neon)">Full list on Wikipedia \u2192</a>`;
+    const free=[],arr=[],req=[];
+    others.forEach(c=>{
+      const st=getVisaStatus(from,c.iso);
+      if(st==='F')free.push(c);
+      else if(st==='A')arr.push(c);
+      else req.push(c);
+    });
+    free.sort((a,b)=>a.name.localeCompare(b.name));
+    arr.sort((a,b)=>a.name.localeCompare(b.name));
+    req.sort((a,b)=>a.name.localeCompare(b.name));
+    $('visa-grid').innerHTML=`
+      <div class="visa-col vfree"><h4>\u2705 Visa Free (${free.length})</h4>${free.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span>\u20B9${fmt(mi(c))}/mo <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
+      <div class="visa-col varr"><h4>\ud83d\udccb On Arrival (${arr.length})</h4>${arr.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span>\u20B9${fmt(mi(c))}/mo <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
+      <div class="visa-col vreq"><h4>\u26a0\ufe0f Visa Required (${req.length})</h4>${req.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span>\u20B9${fmt(mi(c))}/mo <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>`;
   } else {
-    $('visa-note').innerHTML=`Detailed visa data available for India. For ${from}, showing general info. <a href="https://en.wikipedia.org/wiki/Visa_requirements_for_${wikiSlug.replace(/ /g,'_')}_citizens" target="_blank" style="color:var(--neon)">Check full visa list for ${from} \u2192</a>`;
-    const cheap=others.filter(c=>mi(c)<30000&&c.name!=='India').sort((a,b)=>mi(a)-mi(b));
+    // No visa data — show Wikipedia link
+    $('visa-note').innerHTML=`Visa data not yet available for ${from}. <a href="https://en.wikipedia.org/wiki/Visa_requirements_for_${wikiSlug}_citizens" target="_blank" style="color:var(--neon)">Check visa requirements for ${from} on Wikipedia \u2192</a>`;
+    const cheap=others.filter(c=>mi(c)<30000).sort((a,b)=>mi(a)-mi(b));
     const mid=others.filter(c=>mi(c)>=30000&&mi(c)<80000).sort((a,b)=>mi(a)-mi(b));
     const exp=others.filter(c=>mi(c)>=80000).sort((a,b)=>mi(a)-mi(b));
     $('visa-grid').innerHTML=`
-      <div class="visa-col vfree"><h4>\ud83d\udc9a Budget Friendly (${cheap.length})</h4>${cheap.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">\u20B9${fmt(mi(c))}/mo</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
-      <div class="visa-col varr"><h4>\ud83d\udc9b Moderate (${mid.length})</h4>${mid.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">\u20B9${fmt(mi(c))}/mo</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
-      <div class="visa-col vreq"><h4>\u2764\ufe0f Premium (${exp.length})</h4>${exp.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">\u20B9${fmt(mi(c))}/mo</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>`;
+      <div class="visa-col vfree"><h4>\ud83d\udc9a Budget Friendly (${cheap.length})</h4>${cheap.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span>\u20B9${fmt(mi(c))}/mo <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
+      <div class="visa-col varr"><h4>\ud83d\udc9b Moderate (${mid.length})</h4>${mid.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span>\u20B9${fmt(mi(c))}/mo <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
+      <div class="visa-col vreq"><h4>\u2764\ufe0f Premium (${exp.length})</h4>${exp.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span>\u20B9${fmt(mi(c))}/mo <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>`;
   }
 }
 
@@ -475,16 +495,19 @@ function renderTable(){
   let d=[...COUNTRIES];const q=$('q').value.toLowerCase();const rf=$('rf').value;const sb=$('sb').value;
   if(q)d=d.filter(c=>c.name.toLowerCase().includes(q));
   if(rf)d=d.filter(c=>c.region===rf);
-  if(cv==='cheapest')d=d.filter(c=>mi(c)<30000&&c.code!=='INR');
-  if(cv==='expensive')d=d.filter(c=>mi(c)>=80000);
-  if(cv==='student')d=d.filter(c=>c.code!=='INR');
-  if(cv==='nomad')d=d.filter(c=>c.nomad>=75);
-  if(cv==='visafree')d=d.filter(c=>c.visa==='Free'&&c.code!=='INR');
-  if(sb==='cost-asc')d.sort((a,b)=>mi(a)-mi(b));
-  if(sb==='cost-desc')d.sort((a,b)=>mi(b)-mi(a));
-  if(sb==='nomad-desc')d.sort((a,b)=>b.nomad-a.nomad);
-  if(sb==='name')d.sort((a,b)=>a.name.localeCompare(b.name));
-  if(cv==='student')d.sort((a,b)=>si(a)-si(b));
+  // Tab filters — each forces its own sort
+  if(cv==='cheapest'){d=d.filter(c=>c.code!=='INR');d.sort((a,b)=>mi(a)-mi(b));d=d.slice(0,20)}
+  else if(cv==='expensive'){d=d.filter(c=>c.code!=='INR');d.sort((a,b)=>mi(b)-mi(a));d=d.slice(0,20)}
+  else if(cv==='student'){d=d.filter(c=>c.code!=='INR');d.sort((a,b)=>si(a)-si(b))}
+  else if(cv==='nomad'){d=d.filter(c=>c.code!=='INR');d.sort((a,b)=>b.nomad-a.nomad)}
+  else if(cv==='visafree'){d=d.filter(c=>c.visa==='Free'&&c.code!=='INR');d.sort((a,b)=>b.vdays-a.vdays)}
+  else{
+    // "All" tab — respect sort dropdown
+    if(sb==='cost-asc')d.sort((a,b)=>mi(a)-mi(b));
+    else if(sb==='cost-desc')d.sort((a,b)=>mi(b)-mi(a));
+    else if(sb==='nomad-desc')d.sort((a,b)=>b.nomad-a.nomad);
+    else if(sb==='name')d.sort((a,b)=>a.name.localeCompare(b.name));
+  }
 
   $('ctb').innerHTML=d.map(c=>`<tr onclick="showDetail('${c.name}')">
     <td><span class="flag">${c.flag}</span>${c.name}</td><td>${c.code}</td>
