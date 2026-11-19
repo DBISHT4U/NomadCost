@@ -3,165 +3,179 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>NomadCost — Currency & Cost of Living Explorer</title>
+<title>NomadCost — Global Currency & Cost of Living Explorer</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson-client/3.1.0/topojson-client.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 <style>
-:root{
-  --bg:#070b14;--surface:#0f1524;--surface2:#161d30;--surface3:#1c2540;
-  --text:#e8ecf4;--dim:#6b7a99;--accent:#3b82f6;--accent2:#8b5cf6;
-  --green:#10b981;--red:#ef4444;--orange:#f59e0b;--pink:#ec4899;
-  --cyan:#06b6d4;--lime:#84cc16;
-  --radius:12px;--font:'DM Sans',system-ui,sans-serif;
-  --display:'Space Grotesk','DM Sans',sans-serif;
-}
+:root{--bg:#04060e;--surface:#0a0f1e;--surface2:#111830;--surface3:#182040;--text:#e0e6f0;--dim:#5a6a8a;--neon:#00e5ff;--neon2:#7c4dff;--neon3:#ff4081;--neong:#39ff14;--neony:#ffe600;--neonp:#e040fb;--red:#ff1744;--orange:#ff9100;--radius:10px;--font:'DM Sans',system-ui,sans-serif;--display:'Space Grotesk',sans-serif}
 *{margin:0;padding:0;box-sizing:border-box}
-html{scroll-behavior:smooth;scroll-padding-top:70px}
+html{scroll-behavior:smooth;scroll-padding-top:60px}
 body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;overflow-x:hidden}
-::-webkit-scrollbar{width:6px}
-::-webkit-scrollbar-track{background:var(--bg)}
-::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:3px}
 
-/* MOUSE TRAIL */
-.cursor-glow{position:fixed;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,.08) 0%,transparent 70%);pointer-events:none;z-index:1;transform:translate(-50%,-50%);transition:transform .1s ease-out,opacity .3s}
+/* CURSOR GLOW */
+#glow{position:fixed;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(0,229,255,.06) 0%,rgba(124,77,255,.03) 40%,transparent 70%);pointer-events:none;z-index:1;transform:translate(-50%,-50%);transition:transform .08s}
 
-/* FLOATING CURRENCY SYMBOLS */
-.float-bg{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;overflow:hidden}
-.float-symbol{position:absolute;font-size:2rem;opacity:.04;animation:floatUp linear infinite;color:var(--text)}
-@keyframes floatUp{
-  0%{transform:translateY(110vh) rotate(0deg)}
-  100%{transform:translateY(-10vh) rotate(360deg)}
-}
+/* FLOATING BG */
+.fbg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.fsym{position:absolute;opacity:.03;animation:fup linear infinite;font-weight:700}
+@keyframes fup{0%{transform:translateY(105vh) rotate(0deg)}100%{transform:translateY(-5vh) rotate(360deg)}}
 
 /* NAV */
-nav{position:sticky;top:0;z-index:100;background:rgba(7,11,20,.85);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.06);padding:.7rem 1.5rem;display:flex;align-items:center;justify-content:space-between}
-.logo{font-family:var(--display);font-size:1.3rem;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.nav-links{display:flex;gap:1.5rem;font-size:.82rem}
+nav{position:sticky;top:0;z-index:100;background:rgba(4,6,14,.88);backdrop-filter:blur(20px);border-bottom:1px solid rgba(0,229,255,.08);padding:.6rem 1.5rem;display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:var(--display);font-size:1.3rem;font-weight:700;color:var(--neon);text-shadow:0 0 20px rgba(0,229,255,.4)}
+.nav-links{display:flex;gap:1.2rem;font-size:.8rem}
 .nav-links a{color:var(--dim);text-decoration:none;transition:.2s}
-.nav-links a:hover{color:var(--accent)}
+.nav-links a:hover{color:var(--neon);text-shadow:0 0 10px rgba(0,229,255,.3)}
 
-/* LAYOUT */
-.container{max-width:1200px;margin:0 auto;padding:0 1.5rem;position:relative;z-index:2}
-section{padding:3rem 0}
-h2{font-family:var(--display);font-size:1.8rem;margin-bottom:1.5rem}
-h2 span{background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.container{max-width:1280px;margin:0 auto;padding:0 1.5rem;position:relative;z-index:2}
+section{padding:2.5rem 0}
+h2{font-family:var(--display);font-size:1.7rem;margin-bottom:1.2rem}
+h2 .hl{color:var(--neon);text-shadow:0 0 20px rgba(0,229,255,.3)}
+.sub{color:var(--dim);font-size:.9rem;margin-bottom:1.5rem;max-width:650px}
 
 /* HERO */
-.hero{text-align:center;padding:4rem 0 2rem;position:relative}
-.hero h1{font-family:var(--display);font-size:clamp(2rem,5vw,3.2rem);font-weight:700;line-height:1.15;margin-bottom:1rem}
-.hero h1 span{background:linear-gradient(135deg,var(--accent),var(--pink),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hero p{color:var(--dim);font-size:1.05rem;max-width:600px;margin:0 auto 2rem}
+.hero{text-align:center;padding:3rem 0 1rem}
+.hero h1{font-family:var(--display);font-size:clamp(1.8rem,4.5vw,2.8rem);font-weight:700;line-height:1.2;margin-bottom:.8rem}
+.hero h1 .hl{background:linear-gradient(135deg,var(--neon),var(--neon2),var(--neon3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-shadow:none}
+.hero p{color:var(--dim);max-width:600px;margin:0 auto 1.5rem;font-size:.95rem}
+
+/* MAP */
+#map-section{position:relative}
+.map-wrap{position:relative;border:1px solid rgba(0,229,255,.1);border-radius:16px;overflow:hidden;background:var(--surface);box-shadow:0 0 60px rgba(0,229,255,.05)}
+.map-wrap svg{width:100%;height:auto;display:block}
+.map-wrap .country-path{fill:var(--surface2);stroke:rgba(0,229,255,.12);stroke-width:.3;cursor:pointer;transition:fill .2s}
+.map-wrap .country-path:hover{fill:rgba(0,229,255,.15);stroke:var(--neon);stroke-width:.6}
+.map-wrap .country-path.active{fill:rgba(0,229,255,.25);stroke:var(--neon);stroke-width:.8}
+.map-wrap .country-path.has-data{fill:var(--surface3)}
+.map-wrap .pulse-dot{fill:var(--neon);opacity:.8}
+.map-wrap .pulse-ring{fill:none;stroke:var(--neon);opacity:0;animation:pulse 2s ease-out infinite}
+@keyframes pulse{0%{r:2;opacity:.6}100%{r:12;opacity:0}}
+.map-tooltip{position:absolute;background:var(--surface);border:1px solid rgba(0,229,255,.2);border-radius:8px;padding:.6rem .9rem;font-size:.82rem;pointer-events:none;display:none;z-index:10;box-shadow:0 0 20px rgba(0,229,255,.1)}
+.scan-line{position:absolute;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--neon),transparent);opacity:.3;animation:scanV 4s ease-in-out infinite}
+@keyframes scanV{0%{top:0}50%{top:100%}100%{top:0}}
 
 /* CONVERTER */
-.converter{background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:2rem;max-width:700px;margin:0 auto 2rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:end}
-.conv-field{flex:1;min-width:180px}
-.conv-field label{font-size:.75rem;color:var(--dim);display:block;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.05em}
-.conv-field input,.conv-field select{width:100%;background:var(--surface2);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);padding:.7rem 1rem;color:var(--text);font-size:1rem;font-family:var(--font);outline:none}
-.conv-field input:focus,.conv-field select:focus{border-color:var(--accent)}
-.conv-result{text-align:center;width:100%;padding-top:1rem;font-size:1.8rem;font-family:var(--display);font-weight:700;color:var(--green)}
-.conv-rate{font-size:.85rem;color:var(--dim);font-weight:400}
+.converter{background:var(--surface);border:1px solid rgba(0,229,255,.1);border-radius:16px;padding:1.8rem;max-width:720px;margin:0 auto 2rem;display:flex;gap:1rem;flex-wrap:wrap;align-items:end;box-shadow:0 0 40px rgba(0,229,255,.03)}
+.cf{flex:1;min-width:160px}
+.cf label{font-size:.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:.3rem}
+.cf input,.cf select{width:100%;background:var(--surface2);border:1px solid rgba(0,229,255,.1);border-radius:var(--radius);padding:.65rem .9rem;color:var(--text);font-size:.95rem;font-family:var(--font);outline:none;transition:.2s}
+.cf input:focus,.cf select:focus{border-color:var(--neon);box-shadow:0 0 15px rgba(0,229,255,.1)}
+.conv-res{text-align:center;width:100%;padding-top:.8rem;font-size:1.6rem;font-family:var(--display);font-weight:700;color:var(--neon);text-shadow:0 0 20px rgba(0,229,255,.3)}
+.conv-sub{font-size:.8rem;color:var(--dim);font-weight:400;text-shadow:none}
 
-/* STAT CARDS */
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-bottom:2rem}
-.stat-card{background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:1.2rem 1.4rem;transition:.3s}
-.stat-card:hover{border-color:rgba(59,130,246,.3);transform:translateY(-2px)}
-.stat-card .label{font-size:.75rem;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem}
-.stat-card .value{font-family:var(--display);font-size:1.6rem;font-weight:700}
-.stat-card .sub{font-size:.8rem;color:var(--dim);margin-top:.3rem}
-.stat-card.green .value{color:var(--green)}
-.stat-card.red .value{color:var(--red)}
-.stat-card.blue .value{color:var(--accent)}
-.stat-card.purple .value{color:var(--accent2)}
+/* CARDS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.8rem}
+.sc{background:var(--surface);border:1px solid rgba(0,229,255,.06);border-radius:var(--radius);padding:1rem 1.2rem;transition:.3s}
+.sc:hover{border-color:rgba(0,229,255,.2);box-shadow:0 0 25px rgba(0,229,255,.05);transform:translateY(-2px)}
+.sc .sl{font-size:.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem}
+.sc .sv{font-family:var(--display);font-size:1.4rem;font-weight:700}
+.sc .ss{font-size:.78rem;color:var(--dim);margin-top:.2rem}
+.sc.g .sv{color:var(--neong);text-shadow:0 0 10px rgba(57,255,20,.2)}
+.sc.r .sv{color:var(--red);text-shadow:0 0 10px rgba(255,23,68,.2)}
+.sc.b .sv{color:var(--neon);text-shadow:0 0 10px rgba(0,229,255,.2)}
+.sc.p .sv{color:var(--neon2);text-shadow:0 0 10px rgba(124,77,255,.2)}
 
-/* TABS */
-.tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap}
-.tab{padding:.5rem 1.2rem;border-radius:20px;font-size:.82rem;font-weight:500;cursor:pointer;border:1px solid rgba(255,255,255,.08);background:transparent;color:var(--dim);transition:.2s}
-.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.tab:hover:not(.active){border-color:var(--accent);color:var(--text)}
+/* VISA EXPLORER */
+.visa-bar{display:flex;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
+.visa-bar select{background:var(--surface);border:1px solid rgba(0,229,255,.1);border-radius:var(--radius);padding:.6rem 1rem;color:var(--text);font-family:var(--font);outline:none}
+.visa-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}
+.visa-col h4{font-size:.85rem;margin-bottom:.6rem;padding-bottom:.4rem;border-bottom:1px solid rgba(255,255,255,.06)}
+.visa-col.vfree h4{color:var(--neong);text-shadow:0 0 10px rgba(57,255,20,.2)}
+.visa-col.varr h4{color:var(--neony);text-shadow:0 0 10px rgba(255,230,0,.2)}
+.visa-col.vreq h4{color:var(--red);text-shadow:0 0 10px rgba(255,23,68,.2)}
+.visa-item{font-size:.82rem;padding:.3rem 0;display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.03)}
+.visa-item .vdays{color:var(--dim);font-size:.72rem}
+.visa-item a{color:var(--neon);text-decoration:none;font-size:.7rem;opacity:.6;transition:.2s}
+.visa-item a:hover{opacity:1}
 
-/* FILTER */
-.filter-bar{display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center}
-.filter-bar input,.filter-bar select{background:var(--surface);border:1px solid rgba(255,255,255,.08);border-radius:var(--radius);padding:.6rem 1rem;color:var(--text);font-family:var(--font);font-size:.88rem;outline:none}
-.filter-bar input{flex:1;min-width:200px}
-.filter-bar select{min-width:150px}
+/* TABS & FILTERS */
+.tabs{display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap}
+.tab{padding:.45rem 1rem;border-radius:20px;font-size:.78rem;font-weight:500;cursor:pointer;border:1px solid rgba(0,229,255,.08);background:transparent;color:var(--dim);transition:.2s}
+.tab.active{background:rgba(0,229,255,.12);color:var(--neon);border-color:var(--neon);box-shadow:0 0 15px rgba(0,229,255,.1)}
+.tab:hover:not(.active){border-color:rgba(0,229,255,.2);color:var(--text)}
+.fbar{display:flex;gap:.8rem;margin-bottom:1rem;flex-wrap:wrap}
+.fbar input,.fbar select{background:var(--surface);border:1px solid rgba(0,229,255,.08);border-radius:var(--radius);padding:.55rem .9rem;color:var(--text);font-family:var(--font);font-size:.85rem;outline:none}
+.fbar input{flex:1;min-width:180px}
+.fbar input:focus{border-color:var(--neon)}
 
 /* TABLE */
-.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid rgba(255,255,255,.06)}
-table{width:100%;border-collapse:collapse;font-size:.88rem}
+.tw{overflow-x:auto;border-radius:var(--radius);border:1px solid rgba(0,229,255,.08)}
+table{width:100%;border-collapse:collapse;font-size:.84rem}
 thead{background:var(--surface2)}
-th{padding:.8rem 1rem;text-align:left;font-weight:600;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);cursor:pointer;white-space:nowrap;user-select:none}
-th:hover{color:var(--accent)}
-td{padding:.7rem 1rem;border-top:1px solid rgba(255,255,255,.04)}
-tr:hover{background:rgba(59,130,246,.05)}
-.flag{font-size:1.2rem;margin-right:.4rem;vertical-align:middle}
-.badge{display:inline-block;padding:.15rem .5rem;border-radius:6px;font-size:.72rem;font-weight:600}
-.badge.cheap{background:rgba(16,185,129,.15);color:var(--green)}
-.badge.mid{background:rgba(245,158,11,.15);color:var(--orange)}
-.badge.expensive{background:rgba(239,68,68,.15);color:var(--red)}
-.badge.visa-free{background:rgba(16,185,129,.15);color:var(--green)}
-.badge.on-arrival{background:rgba(6,182,212,.15);color:var(--cyan)}
-.badge.required{background:rgba(239,68,68,.15);color:var(--red)}
-.nomad-bar{width:60px;height:6px;background:var(--surface3);border-radius:3px;display:inline-block;vertical-align:middle;margin-left:.4rem}
-.nomad-fill{height:100%;border-radius:3px;background:var(--green)}
+th{padding:.7rem .8rem;text-align:left;font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);white-space:nowrap}
+td{padding:.6rem .8rem;border-top:1px solid rgba(255,255,255,.03)}
+tr{cursor:pointer;transition:.15s}
+tr:hover{background:rgba(0,229,255,.04)}
+.flag{font-size:1.1rem;margin-right:.3rem;vertical-align:middle}
+.badge{display:inline-block;padding:.12rem .45rem;border-radius:5px;font-size:.68rem;font-weight:600}
+.badge.cheap{background:rgba(57,255,20,.1);color:var(--neong)}
+.badge.mid{background:rgba(255,145,0,.1);color:var(--orange)}
+.badge.exp{background:rgba(255,23,68,.1);color:var(--red)}
+.badge.vf{background:rgba(57,255,20,.1);color:var(--neong)}
+.badge.va{background:rgba(255,230,0,.1);color:var(--neony)}
+.badge.vr{background:rgba(255,23,68,.1);color:var(--red)}
+.nbar{width:50px;height:5px;background:var(--surface3);border-radius:3px;display:inline-block;vertical-align:middle;margin-left:.3rem}
+.nbar .nfill{height:100%;border-radius:3px}
+a.know{color:var(--neon);text-decoration:none;font-size:.7rem;opacity:.5;margin-left:.3rem}
+a.know:hover{opacity:1}
 
-/* DETAIL PANEL */
-.detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(5px);z-index:200;display:none;align-items:center;justify-content:center;padding:1rem}
-.detail-overlay.open{display:flex}
-.detail-panel{background:var(--surface);border:1px solid rgba(255,255,255,.08);border-radius:16px;max-width:800px;width:100%;max-height:90vh;overflow-y:auto;padding:2rem;position:relative}
-.detail-panel h3{font-family:var(--display);font-size:1.5rem;margin-bottom:1rem}
-.detail-close{position:absolute;top:1rem;right:1.5rem;background:none;border:none;color:var(--dim);font-size:1.5rem;cursor:pointer}
-.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
-.detail-item{background:var(--surface2);border-radius:var(--radius);padding:1rem}
-.detail-item .dlabel{font-size:.72rem;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem}
-.detail-item .dvalue{font-family:var(--display);font-size:1.2rem;font-weight:600}
+/* DETAIL OVERLAY */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);z-index:200;display:none;align-items:center;justify-content:center;padding:1rem}
+.ov.open{display:flex}
+.dp{background:var(--surface);border:1px solid rgba(0,229,255,.12);border-radius:16px;max-width:850px;width:100%;max-height:90vh;overflow-y:auto;padding:2rem;position:relative;box-shadow:0 0 60px rgba(0,229,255,.08)}
+.dp h3{font-family:var(--display);font-size:1.4rem;margin-bottom:.8rem}
+.dc{position:absolute;top:1rem;right:1.5rem;background:none;border:none;color:var(--dim);font-size:1.3rem;cursor:pointer}
+.dg{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.di{background:var(--surface2);border-radius:var(--radius);padding:.9rem}
+.di .dl{font-size:.68rem;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.2rem}
+.di .dv{font-family:var(--display);font-size:1.1rem;font-weight:600}
+.tip-box{background:var(--surface2);border-left:2px solid var(--neon);border-radius:0 var(--radius) var(--radius) 0;padding:.8rem 1rem;margin-top:1rem;font-size:.85rem;color:var(--dim);line-height:1.7}
+
+/* SURVIVAL & FOOD (similar to before but neon) */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.8rem}
+.scard{background:var(--surface);border:1px solid rgba(0,229,255,.06);border-radius:var(--radius);padding:1.2rem;cursor:pointer;transition:.3s}
+.scard:hover{border-color:rgba(0,229,255,.2);box-shadow:0 0 25px rgba(0,229,255,.05);transform:translateY(-2px)}
+.scard h4{font-size:.95rem;margin-bottom:.6rem}
+.crow{display:flex;justify-content:space-between;padding:.3rem 0;font-size:.82rem;border-bottom:1px solid rgba(255,255,255,.03)}
+.stotal{font-family:var(--display);font-size:1.2rem;font-weight:700;color:var(--neon);text-shadow:0 0 10px rgba(0,229,255,.2);margin-top:.6rem;padding-top:.4rem;border-top:1px solid rgba(0,229,255,.1)}
+
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:.8rem}
+.fcard{background:var(--surface);border:1px solid rgba(0,229,255,.06);border-radius:var(--radius);padding:1rem;text-align:center}
+.fcard .em{font-size:1.8rem;margin-bottom:.4rem}
+.fcard h5{font-size:.85rem;margin-bottom:.5rem}
+.fp{display:flex;justify-content:space-between;font-size:.78rem;padding:.2rem 0}
 
 /* CHARTS */
-.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
-.chart-box{background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:1.5rem}
-.chart-box h4{font-size:.9rem;margin-bottom:1rem;color:var(--dim)}
-.chart-box canvas{width:100%!important;max-height:300px}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.cbox{background:var(--surface);border:1px solid rgba(0,229,255,.06);border-radius:var(--radius);padding:1.2rem}
+.cbox h4{font-size:.82rem;color:var(--dim);margin-bottom:.8rem}
+.cbox canvas{width:100%!important;max-height:280px}
 
-/* SURVIVAL */
-.survival-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
-.survival-card{background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:1.4rem;transition:.3s;cursor:pointer}
-.survival-card:hover{border-color:rgba(139,92,246,.3);transform:translateY(-2px)}
-.survival-card h4{font-size:1rem;margin-bottom:.8rem}
-.survival-card .cost-row{display:flex;justify-content:space-between;padding:.35rem 0;font-size:.85rem;border-bottom:1px solid rgba(255,255,255,.04)}
-.survival-card .cost-row:last-child{border:none}
-.survival-card .total{font-family:var(--display);font-size:1.3rem;font-weight:700;color:var(--accent);margin-top:.8rem;padding-top:.5rem;border-top:1px solid rgba(255,255,255,.08)}
-
-/* FOOD */
-.food-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem}
-.food-card{background:var(--surface);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);padding:1.2rem;text-align:center}
-.food-card .emoji{font-size:2rem;margin-bottom:.5rem}
-.food-card h5{font-size:.9rem;margin-bottom:.6rem}
-.food-price{display:flex;justify-content:space-between;font-size:.8rem;padding:.25rem 0}
-.food-price .type{color:var(--dim)}
-
-footer{text-align:center;padding:3rem 0;color:var(--dim);font-size:.82rem;border-top:1px solid rgba(255,255,255,.04)}
+footer{text-align:center;padding:2.5rem 0;color:var(--dim);font-size:.78rem;border-top:1px solid rgba(0,229,255,.06)}
+footer a{color:var(--neon);text-decoration:none}
 
 @media(max-width:768px){
-  .chart-grid,.detail-grid{grid-template-columns:1fr}
+  .cgrid,.dg,.visa-grid{grid-template-columns:1fr}
   .nav-links{display:none}
-  .hero h1{font-size:1.8rem}
-  .converter{flex-direction:column}
-  .conv-field{min-width:100%}
+  .hero h1{font-size:1.6rem}
+  .converter{flex-direction:column}.cf{min-width:100%}
+  .visa-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
 <body>
-
-<!-- MOUSE GLOW TRAIL -->
-<div class="cursor-glow" id="cursor-glow"></div>
-
-<!-- FLOATING CURRENCY BACKGROUND -->
-<div class="float-bg" id="float-bg"></div>
+<div id="glow"></div>
+<div class="fbg" id="fbg"></div>
 
 <nav>
   <div class="logo">NomadCost</div>
   <div class="nav-links">
-    <a href="#converter">Convert</a>
-    <a href="#dashboard">Dashboard</a>
+    <a href="#map-section">Map</a>
+    <a href="#converter-s">Convert</a>
+    <a href="#visa-section">Visa</a>
     <a href="#countries">Countries</a>
     <a href="#survival">Survival</a>
     <a href="#food">Food</a>
@@ -170,292 +184,323 @@ footer{text-align:center;padding:3rem 0;color:var(--dim);font-size:.82rem;border
 </nav>
 
 <div class="container">
-
 <section class="hero">
-  <h1>Every <span>Currency & Cost</span><br>in One Place</h1>
-  <p>Real-time exchange rates, cost of living, visa info, food prices, digital nomad scores — compare everything against India. Find out where your money goes further.</p>
+  <h1>Explore the World's <span class="hl">Currency & Cost</span></h1>
+  <p>75+ countries. Live exchange rates. Visa info. Food prices. Nomad scores. Everything compared against India — find where your money goes the furthest.</p>
 </section>
 
-<section id="converter">
-  <div class="converter">
-    <div class="conv-field"><label>Amount</label><input type="number" id="conv-amount" value="10000" min="1"></div>
-    <div class="conv-field"><label>From</label><select id="conv-from"></select></div>
-    <div class="conv-field"><label>To</label><select id="conv-to"></select></div>
-    <div class="conv-result" id="conv-result">—</div>
+<!-- WORLD MAP -->
+<section id="map-section">
+  <h2>Interactive <span class="hl">World Map</span></h2>
+  <p class="sub">Click any country to explore. Neon dots mark countries with detailed cost data.</p>
+  <div class="map-wrap" id="map-wrap">
+    <div class="scan-line"></div>
+    <svg id="world-map" viewBox="0 0 960 500"></svg>
+    <div class="map-tooltip" id="map-tip"></div>
   </div>
 </section>
 
+<!-- CONVERTER -->
+<section id="converter-s">
+  <h2>Currency <span class="hl">Converter</span></h2>
+  <div class="converter">
+    <div class="cf"><label>Amount</label><input type="number" id="c-amt" value="10000" min="1"></div>
+    <div class="cf"><label>From</label><select id="c-from"></select></div>
+    <div class="cf"><label>To</label><select id="c-to"></select></div>
+    <div class="conv-res" id="c-res">—</div>
+  </div>
+</section>
+
+<!-- QUICK STATS -->
 <section id="dashboard">
-  <h2>Quick <span>Overview</span></h2>
+  <h2>Quick <span class="hl">Overview</span></h2>
   <div class="stats" id="stat-cards"></div>
 </section>
 
+<!-- VISA EXPLORER -->
+<section id="visa-section">
+  <h2>Visa <span class="hl">Explorer</span></h2>
+  <p class="sub">See which countries offer visa-free entry, visa on arrival, or require advance application — for Indian passport holders.</p>
+  <div class="visa-bar">
+    <select id="visa-from"><option value="India">I'm from: India</option></select>
+  </div>
+  <div class="visa-grid" id="visa-grid"></div>
+</section>
+
+<!-- COUNTRY TABLE -->
 <section id="countries">
-  <h2>Country <span>Explorer</span></h2>
-  <div class="tabs" id="view-tabs">
-    <button class="tab active" data-view="all">All Countries</button>
-    <button class="tab" data-view="cheapest">Cheapest</button>
-    <button class="tab" data-view="expensive">Most Expensive</button>
-    <button class="tab" data-view="student">Student Budget</button>
-    <button class="tab" data-view="nomad">Digital Nomad</button>
+  <h2>Country <span class="hl">Explorer</span></h2>
+  <div class="tabs" id="vtabs">
+    <button class="tab active" data-v="all">All Countries</button>
+    <button class="tab" data-v="cheapest">Cheapest</button>
+    <button class="tab" data-v="expensive">Most Expensive</button>
+    <button class="tab" data-v="student">Student Budget</button>
+    <button class="tab" data-v="nomad">Digital Nomad</button>
+    <button class="tab" data-v="visafree">Visa Free</button>
   </div>
-  <div class="filter-bar">
-    <input type="text" id="search-input" placeholder="Search country...">
-    <select id="region-filter"><option value="">All Regions</option><option value="Asia">Asia</option><option value="Europe">Europe</option><option value="Americas">Americas</option><option value="Africa">Africa</option><option value="Oceania">Oceania</option><option value="Middle East">Middle East</option></select>
-    <select id="sort-by"><option value="cost-asc">Cost: Low to High</option><option value="cost-desc">Cost: High to Low</option><option value="rate">Exchange Rate</option><option value="nomad">Nomad Score</option><option value="name">Name A-Z</option></select>
+  <div class="fbar">
+    <input type="text" id="q" placeholder="Search country...">
+    <select id="rf"><option value="">All Regions</option><option value="Asia">Asia</option><option value="Europe">Europe</option><option value="Americas">Americas</option><option value="Africa">Africa</option><option value="Oceania">Oceania</option><option value="Middle East">Middle East</option></select>
+    <select id="sb"><option value="cost-asc">Cost: Low to High</option><option value="cost-desc">Cost: High to Low</option><option value="nomad-desc">Nomad Score</option><option value="name">Name A-Z</option></select>
   </div>
-  <div class="table-wrap">
-    <table><thead><tr><th>Country</th><th>Currency</th><th>1 INR =</th><th>Cost Level</th><th>Monthly Cost</th><th>Visa</th><th>Nomad Score</th><th>WiFi</th></tr></thead><tbody id="country-table"></tbody></table>
-  </div>
+  <div class="tw"><table><thead><tr><th>Country</th><th>Currency</th><th>1 INR =</th><th>Level</th><th>Monthly (INR)</th><th>Visa</th><th>Nomad</th><th>WiFi</th><th></th></tr></thead><tbody id="ctb"></tbody></table></div>
 </section>
 
+<!-- SURVIVAL GUIDE -->
 <section id="survival">
-  <h2>1 Month <span>Survival Guide</span></h2>
-  <p style="color:var(--dim);margin-bottom:1.5rem">Complete monthly budget for comfortable basic living — rent, food, transport, internet, entertainment — all converted to INR.</p>
-  <div class="survival-cards" id="survival-cards"></div>
+  <h2>1 Month <span class="hl">Survival Guide</span></h2>
+  <p class="sub">Complete monthly budget breakdown — rent, food, transport, internet, entertainment — all in INR.</p>
+  <div class="sgrid" id="sgrid"></div>
 </section>
 
+<!-- FOOD -->
 <section id="food">
-  <h2>Food <span>Price Compare</span></h2>
-  <div class="filter-bar"><select id="food-country-select"></select></div>
-  <div class="food-grid" id="food-grid"></div>
+  <h2>Food <span class="hl">Price Compare</span></h2>
+  <div class="fbar"><select id="fc"></select></div>
+  <div class="fgrid" id="fgrid"></div>
 </section>
 
+<!-- CHARTS -->
 <section id="charts">
-  <h2>Visual <span>Insights</span></h2>
-  <div class="chart-grid">
-    <div class="chart-box"><h4>Top 10 Cheapest Countries (Monthly Cost in INR)</h4><canvas id="chart-cheapest"></canvas></div>
-    <div class="chart-box"><h4>Top 10 Most Expensive Countries (Monthly Cost in INR)</h4><canvas id="chart-expensive"></canvas></div>
-    <div class="chart-box"><h4>Cost Breakdown — Average Budget Country</h4><canvas id="chart-breakdown"></canvas></div>
-    <div class="chart-box"><h4>Digital Nomad Score — Top 10</h4><canvas id="chart-nomad"></canvas></div>
+  <h2>Visual <span class="hl">Insights</span></h2>
+  <div class="cgrid">
+    <div class="cbox"><h4>Top 10 Cheapest Countries (INR/month)</h4><canvas id="ch1"></canvas></div>
+    <div class="cbox"><h4>Top 10 Most Expensive Countries (INR/month)</h4><canvas id="ch2"></canvas></div>
+    <div class="cbox"><h4>Budget Breakdown (Thailand)</h4><canvas id="ch3"></canvas></div>
+    <div class="cbox"><h4>Digital Nomad Radar — Top 10</h4><canvas id="ch4"></canvas></div>
   </div>
 </section>
-
 </div>
 
-<div class="detail-overlay" id="detail-overlay">
-  <div class="detail-panel" id="detail-panel"></div>
-</div>
+<!-- DETAIL OVERLAY -->
+<div class="ov" id="ov"><div class="dp" id="dp"></div></div>
 
 <footer>
-  <p>NomadCost — Built with open data &amp; real-time exchange APIs.<br>
-  Designed for travelers, students, digital nomads &amp; the globally curious.</p>
+  <p>NomadCost — 75+ countries, live exchange rates, open data.<br>
+  Built for travelers, students &amp; digital nomads. <a href="https://github.com/DBISHT4U/NomadCost" target="_blank">GitHub</a></p>
 </footer>
 
+<script src="data.js"></script>
 <script>
-// ===== MOUSE GLOW TRAIL =====
-const glow=document.getElementById('cursor-glow');
-let mouseX=0,mouseY=0,glowX=0,glowY=0;
-document.addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
-function animateGlow(){
-  glowX+=(mouseX-glowX)*.08;
-  glowY+=(mouseY-glowY)*.08;
-  glow.style.left=glowX+'px';
-  glow.style.top=glowY+'px';
-  requestAnimationFrame(animateGlow);
-}
-animateGlow();
+// ===== GLOBALS =====
+let R={};const $=s=>document.getElementById(s);
 
-// ===== FLOATING CURRENCY SYMBOLS =====
-const symbols=['$','€','£','¥','₹','₩','฿','₪','₫','₽','₱','﷼','Fr','kr','R$','zł','Rp','RM','₦','₵','₸','₺','₴','₡','৳','₲','₮','₼','₾','лв'];
-const floatBg=document.getElementById('float-bg');
-function spawnSymbol(){
-  const el=document.createElement('div');
-  el.className='float-symbol';
-  el.textContent=symbols[Math.floor(Math.random()*symbols.length)];
-  el.style.left=Math.random()*100+'%';
-  el.style.fontSize=(1+Math.random()*2.5)+'rem';
-  el.style.opacity=.02+Math.random()*.04;
-  el.style.animationDuration=(15+Math.random()*25)+'s';
-  el.style.animationDelay=Math.random()*5+'s';
-  floatBg.appendChild(el);
-  setTimeout(()=>el.remove(),(40)*1000);
-}
-for(let i=0;i<20;i++)spawnSymbol();
-setInterval(spawnSymbol,2000);
+// ===== MOUSE GLOW =====
+let mx=0,my=0,gx=0,gy=0;const gl=$('glow');
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY});
+!function a(){gx+=(mx-gx)*.07;gy+=(my-gy)*.07;gl.style.left=gx+'px';gl.style.top=gy+'px';requestAnimationFrame(a)}();
 
-// ===== COUNTRY DATA =====
-const COUNTRIES=[
-  {name:"Thailand",flag:"\u{1F1F9}\u{1F1ED}",code:"THB",region:"Asia",rate:0,monthly_local:25000,rent:8000,food:8000,transport:3000,internet:600,fun:2000,visa:"Visa Free",visa_days:30,nomad:88,wifi:45,safety:7,cowork:9,street_food:60,restaurant:200,cooking:4000,student_monthly:18000},
-  {name:"Vietnam",flag:"\u{1F1FB}\u{1F1F3}",code:"VND",region:"Asia",rate:0,monthly_local:12000000,rent:5000000,food:4000000,transport:1000000,internet:200000,fun:800000,visa:"On Arrival",visa_days:30,nomad:85,wifi:40,safety:7,cowork:8,street_food:35000,restaurant:120000,cooking:2500000,student_monthly:8000000},
-  {name:"Indonesia",flag:"\u{1F1EE}\u{1F1E9}",code:"IDR",region:"Asia",rate:0,monthly_local:12000000,rent:4000000,food:4500000,transport:1500000,internet:400000,fun:1200000,visa:"Visa Free",visa_days:30,nomad:82,wifi:30,safety:6,cowork:8,street_food:20000,restaurant:80000,cooking:2500000,student_monthly:8500000},
-  {name:"Malaysia",flag:"\u{1F1F2}\u{1F1FE}",code:"MYR",region:"Asia",rate:0,monthly_local:3500,rent:1200,food:1200,transport:300,internet:120,fun:400,visa:"Visa Free",visa_days:90,nomad:80,wifi:50,safety:7,cowork:7,street_food:8,restaurant:25,cooking:600,student_monthly:2500},
-  {name:"Philippines",flag:"\u{1F1F5}\u{1F1ED}",code:"PHP",region:"Asia",rate:0,monthly_local:40000,rent:12000,food:15000,transport:5000,internet:2000,fun:4000,visa:"Visa Free",visa_days:30,nomad:75,wifi:25,safety:5,cowork:7,street_food:80,restaurant:300,cooking:8000,student_monthly:28000},
-  {name:"Cambodia",flag:"\u{1F1F0}\u{1F1ED}",code:"KHR",region:"Asia",rate:0,monthly_local:2800000,rent:1000000,food:1000000,transport:300000,internet:100000,fun:300000,visa:"On Arrival",visa_days:30,nomad:72,wifi:25,safety:6,cowork:6,street_food:4000,restaurant:20000,cooking:600000,student_monthly:2000000},
-  {name:"Nepal",flag:"\u{1F1F3}\u{1F1F5}",code:"NPR",region:"Asia",rate:0,monthly_local:35000,rent:10000,food:12000,transport:5000,internet:1500,fun:3000,visa:"On Arrival",visa_days:90,nomad:60,wifi:15,safety:7,cowork:4,street_food:100,restaurant:400,cooking:7000,student_monthly:22000},
-  {name:"Sri Lanka",flag:"\u{1F1F1}\u{1F1F0}",code:"LKR",region:"Asia",rate:0,monthly_local:120000,rent:40000,food:40000,transport:15000,internet:3000,fun:10000,visa:"On Arrival",visa_days:30,nomad:65,wifi:20,safety:6,cowork:5,street_food:300,restaurant:1500,cooking:25000,student_monthly:80000},
-  {name:"Turkey",flag:"\u{1F1F9}\u{1F1F7}",code:"TRY",region:"Europe",rate:0,monthly_local:25000,rent:8000,food:8000,transport:3000,internet:300,fun:3000,visa:"Visa Free",visa_days:90,nomad:78,wifi:35,safety:6,cowork:7,street_food:80,restaurant:300,cooking:5000,student_monthly:18000},
-  {name:"Georgia",flag:"\u{1F1EC}\u{1F1EA}",code:"GEL",region:"Europe",rate:0,monthly_local:2500,rent:800,food:900,transport:200,internet:40,fun:300,visa:"Visa Free",visa_days:365,nomad:82,wifi:40,safety:8,cowork:7,street_food:8,restaurant:25,cooking:400,student_monthly:1800},
-  {name:"Portugal",flag:"\u{1F1F5}\u{1F1F9}",code:"EUR",region:"Europe",rate:0,monthly_local:1500,rent:650,food:400,transport:100,internet:30,fun:150,visa:"Required",visa_days:0,nomad:85,wifi:60,safety:9,cowork:9,street_food:5,restaurant:15,cooking:250,student_monthly:1200},
-  {name:"Mexico",flag:"\u{1F1F2}\u{1F1FD}",code:"MXN",region:"Americas",rate:0,monthly_local:18000,rent:7000,food:5000,transport:2000,internet:500,fun:2000,visa:"Visa Free",visa_days:180,nomad:84,wifi:40,safety:5,cowork:8,street_food:50,restaurant:200,cooking:3000,student_monthly:13000},
-  {name:"Colombia",flag:"\u{1F1E8}\u{1F1F4}",code:"COP",region:"Americas",rate:0,monthly_local:3500000,rent:1200000,food:1200000,transport:400000,internet:100000,fun:400000,visa:"Visa Free",visa_days:90,nomad:80,wifi:35,safety:5,cowork:8,street_food:8000,restaurant:30000,cooking:700000,student_monthly:2500000},
-  {name:"Argentina",flag:"\u{1F1E6}\u{1F1F7}",code:"ARS",region:"Americas",rate:0,monthly_local:500000,rent:180000,food:150000,transport:50000,internet:15000,fun:60000,visa:"Visa Free",visa_days:90,nomad:75,wifi:30,safety:5,cowork:7,street_food:3000,restaurant:15000,cooking:90000,student_monthly:350000},
-  {name:"Brazil",flag:"\u{1F1E7}\u{1F1F7}",code:"BRL",region:"Americas",rate:0,monthly_local:4500,rent:1500,food:1500,transport:500,internet:100,fun:500,visa:"Required",visa_days:0,nomad:76,wifi:35,safety:4,cowork:7,street_food:15,restaurant:50,cooking:800,student_monthly:3200},
-  {name:"Egypt",flag:"\u{1F1EA}\u{1F1EC}",code:"EGP",region:"Africa",rate:0,monthly_local:15000,rent:4000,food:5000,transport:2000,internet:300,fun:2000,visa:"On Arrival",visa_days:30,nomad:68,wifi:25,safety:6,cowork:5,street_food:30,restaurant:150,cooking:3000,student_monthly:10000},
-  {name:"Morocco",flag:"\u{1F1F2}\u{1F1E6}",code:"MAD",region:"Africa",rate:0,monthly_local:8000,rent:2500,food:2500,transport:1000,internet:200,fun:800,visa:"Visa Free",visa_days:90,nomad:70,wifi:25,safety:7,cowork:5,street_food:20,restaurant:80,cooking:1500,student_monthly:5500},
-  {name:"South Africa",flag:"\u{1F1FF}\u{1F1E6}",code:"ZAR",region:"Africa",rate:0,monthly_local:18000,rent:6000,food:5000,transport:2500,internet:800,fun:2500,visa:"Visa Free",visa_days:30,nomad:72,wifi:30,safety:4,cowork:6,street_food:40,restaurant:180,cooking:3000,student_monthly:13000},
-  {name:"Kenya",flag:"\u{1F1F0}\u{1F1EA}",code:"KES",region:"Africa",rate:0,monthly_local:60000,rent:20000,food:20000,transport:8000,internet:3000,fun:5000,visa:"On Arrival",visa_days:90,nomad:62,wifi:20,safety:5,cowork:5,street_food:200,restaurant:800,cooking:12000,student_monthly:40000},
-  {name:"UAE",flag:"\u{1F1E6}\u{1F1EA}",code:"AED",region:"Middle East",rate:0,monthly_local:8000,rent:3500,food:2000,transport:800,internet:300,fun:1000,visa:"On Arrival",visa_days:30,nomad:82,wifi:70,safety:9,cowork:9,street_food:15,restaurant:60,cooking:1200,student_monthly:6500},
-  {name:"Japan",flag:"\u{1F1EF}\u{1F1F5}",code:"JPY",region:"Asia",rate:0,monthly_local:220000,rent:70000,food:60000,transport:30000,internet:5000,fun:30000,visa:"Visa Free",visa_days:30,nomad:80,wifi:55,safety:10,cowork:7,street_food:500,restaurant:1200,cooking:35000,student_monthly:160000},
-  {name:"South Korea",flag:"\u{1F1F0}\u{1F1F7}",code:"KRW",region:"Asia",rate:0,monthly_local:1800000,rent:600000,food:500000,transport:200000,internet:30000,fun:250000,visa:"Visa Free",visa_days:30,nomad:82,wifi:70,safety:9,cowork:8,street_food:5000,restaurant:12000,cooking:300000,student_monthly:1300000},
-  {name:"Germany",flag:"\u{1F1E9}\u{1F1EA}",code:"EUR",region:"Europe",rate:0,monthly_local:2000,rent:800,food:500,transport:200,internet:35,fun:200,visa:"Required",visa_days:0,nomad:78,wifi:55,safety:8,cowork:8,street_food:5,restaurant:15,cooking:300,student_monthly:1500},
-  {name:"UK",flag:"\u{1F1EC}\u{1F1E7}",code:"GBP",region:"Europe",rate:0,monthly_local:2500,rent:1100,food:600,transport:250,internet:30,fun:250,visa:"Required",visa_days:0,nomad:80,wifi:60,safety:8,cowork:9,street_food:7,restaurant:20,cooking:350,student_monthly:2000},
-  {name:"USA",flag:"\u{1F1FA}\u{1F1F8}",code:"USD",region:"Americas",rate:0,monthly_local:3500,rent:1500,food:800,transport:400,internet:70,fun:400,visa:"Required",visa_days:0,nomad:82,wifi:65,safety:7,cowork:9,street_food:10,restaurant:25,cooking:500,student_monthly:2800},
-  {name:"Canada",flag:"\u{1F1E8}\u{1F1E6}",code:"CAD",region:"Americas",rate:0,monthly_local:3200,rent:1300,food:700,transport:350,internet:70,fun:400,visa:"Required",visa_days:0,nomad:80,wifi:60,safety:9,cowork:8,street_food:10,restaurant:25,cooking:500,student_monthly:2600},
-  {name:"Australia",flag:"\u{1F1E6}\u{1F1FA}",code:"AUD",region:"Oceania",rate:0,monthly_local:4000,rent:1600,food:900,transport:450,internet:70,fun:500,visa:"Required",visa_days:0,nomad:82,wifi:55,safety:9,cowork:8,street_food:12,restaurant:30,cooking:600,student_monthly:3200},
-  {name:"New Zealand",flag:"\u{1F1F3}\u{1F1FF}",code:"NZD",region:"Oceania",rate:0,monthly_local:3500,rent:1400,food:800,transport:350,internet:70,fun:400,visa:"Required",visa_days:0,nomad:78,wifi:50,safety:9,cowork:7,street_food:12,restaurant:28,cooking:550,student_monthly:2800},
-  {name:"Singapore",flag:"\u{1F1F8}\u{1F1EC}",code:"SGD",region:"Asia",rate:0,monthly_local:4000,rent:1800,food:900,transport:400,internet:50,fun:500,visa:"Visa Free",visa_days:30,nomad:85,wifi:70,safety:10,cowork:9,street_food:5,restaurant:20,cooking:500,student_monthly:3200},
-  {name:"Switzerland",flag:"\u{1F1E8}\u{1F1ED}",code:"CHF",region:"Europe",rate:0,monthly_local:5000,rent:2000,food:1200,transport:500,internet:60,fun:600,visa:"Required",visa_days:0,nomad:78,wifi:65,safety:10,cowork:8,street_food:15,restaurant:40,cooking:700,student_monthly:4000},
-  {name:"Taiwan",flag:"\u{1F1F9}\u{1F1FC}",code:"TWD",region:"Asia",rate:0,monthly_local:40000,rent:12000,food:12000,transport:5000,internet:600,fun:5000,visa:"Visa Free",visa_days:30,nomad:84,wifi:55,safety:9,cowork:8,street_food:70,restaurant:250,cooking:6000,student_monthly:28000},
-  {name:"Czech Republic",flag:"\u{1F1E8}\u{1F1FF}",code:"CZK",region:"Europe",rate:0,monthly_local:35000,rent:14000,food:8000,transport:5000,internet:500,fun:4000,visa:"Required",visa_days:0,nomad:80,wifi:50,safety:8,cowork:8,street_food:80,restaurant:250,cooking:5000,student_monthly:26000},
-  {name:"Poland",flag:"\u{1F1F5}\u{1F1F1}",code:"PLN",region:"Europe",rate:0,monthly_local:5000,rent:2000,food:1500,transport:400,internet:60,fun:500,visa:"Required",visa_days:0,nomad:78,wifi:50,safety:8,cowork:7,street_food:15,restaurant:40,cooking:800,student_monthly:3800},
-  {name:"Hungary",flag:"\u{1F1ED}\u{1F1FA}",code:"HUF",region:"Europe",rate:0,monthly_local:350000,rent:140000,food:80000,transport:30000,internet:5000,fun:40000,visa:"Required",visa_days:0,nomad:76,wifi:45,safety:8,cowork:7,street_food:1200,restaurant:4000,cooking:50000,student_monthly:260000},
-  {name:"Romania",flag:"\u{1F1F7}\u{1F1F4}",code:"RON",region:"Europe",rate:0,monthly_local:4500,rent:1500,food:1200,transport:500,internet:50,fun:600,visa:"Required",visa_days:0,nomad:75,wifi:55,safety:7,cowork:6,street_food:15,restaurant:40,cooking:700,student_monthly:3200},
-  {name:"India",flag:"\u{1F1EE}\u{1F1F3}",code:"INR",region:"Asia",rate:1,monthly_local:25000,rent:8000,food:8000,transport:3000,internet:500,fun:2000,visa:"Home",visa_days:999,nomad:72,wifi:30,safety:6,cowork:7,street_food:50,restaurant:300,cooking:5000,student_monthly:15000},
-  {name:"Saudi Arabia",flag:"\u{1F1F8}\u{1F1E6}",code:"SAR",region:"Middle East",rate:0,monthly_local:5000,rent:2000,food:1500,transport:500,internet:200,fun:500,visa:"On Arrival",visa_days:30,nomad:65,wifi:50,safety:8,cowork:5,street_food:10,restaurant:40,cooking:800,student_monthly:3800},
-  {name:"Qatar",flag:"\u{1F1F6}\u{1F1E6}",code:"QAR",region:"Middle East",rate:0,monthly_local:7000,rent:3000,food:1800,transport:600,internet:250,fun:800,visa:"Visa Free",visa_days:30,nomad:70,wifi:60,safety:9,cowork:6,street_food:15,restaurant:50,cooking:1000,student_monthly:5500},
-  {name:"Oman",flag:"\u{1F1F4}\u{1F1F2}",code:"OMR",region:"Middle East",rate:0,monthly_local:600,rent:250,food:150,transport:60,internet:20,fun:60,visa:"On Arrival",visa_days:14,nomad:58,wifi:40,safety:9,cowork:4,street_food:1,restaurant:4,cooking:80,student_monthly:450},
-  {name:"Maldives",flag:"\u{1F1F2}\u{1F1FB}",code:"MVR",region:"Asia",rate:0,monthly_local:25000,rent:10000,food:8000,transport:2000,internet:500,fun:3000,visa:"On Arrival",visa_days:30,nomad:55,wifi:20,safety:8,cowork:3,street_food:50,restaurant:200,cooking:5000,student_monthly:20000}
-];
+// ===== FLOATING SYMBOLS =====
+const syms=['$','\u20AC','\u00A3','\u00A5','\u20B9','\u20A9','\u0E3F','\u20AB','\u20BD','\u20B1','\u20BA','\u20B4','Fr','kr','R$','z\u0142','Rp','RM','\u20A6','\u20B5','\u20B8','\u20BC','\u20BE','\u20A1','\u09F3','\u20B2','\u20AE'];
+const fb=$('fbg');
+function sp(){const e=document.createElement('div');e.className='fsym';e.textContent=syms[Math.random()*syms.length|0];e.style.left=Math.random()*100+'%';e.style.fontSize=(1.2+Math.random()*2)+'rem';e.style.animationDuration=(18+Math.random()*22)+'s';fb.appendChild(e);setTimeout(()=>e.remove(),42000)}
+for(let i=0;i<15;i++)sp();setInterval(sp,2500);
 
-let liveRates={};
+// ===== UTILS =====
+function toINR(a,code){const r=R[code]||COUNTRIES.find(c=>c.code===code)?.rate||1;return r>0?a/r:a}
+function mi(c){return Math.round(toINR(c.m,c.code))}
+function si(c){return Math.round(toINR(c.stu,c.code))}
+function fmt(n){return n.toLocaleString('en-IN')}
 
+// ===== FETCH RATES =====
 async function fetchRates(){
-  try{
-    const r=await fetch('https://open.er-api.com/v6/latest/INR');
-    const d=await r.json();
-    if(d.result==='success'){liveRates=d.rates;COUNTRIES.forEach(c=>{if(liveRates[c.code])c.rate=liveRates[c.code]});const india=COUNTRIES.find(c=>c.code==='INR');if(india)india.rate=1}
-  }catch(e){
-    const fb={THB:.42,VND:310,IDR:195,MYR:.055,PHP:.70,KHR:50,NPR:1.57,LKR:3.60,TRY:.42,GEL:.033,EUR:.011,MXN:.21,COP:52,ARS:14,BRL:.070,EGP:.59,MAD:.12,ZAR:.22,KES:1.55,AED:.044,JPY:1.85,KRW:16.5,GBP:.0096,USD:.012,CAD:.016,AUD:.019,NZD:.021,SGD:.016,CHF:.011,TWD:.39,CZK:.28,PLN:.049,HUF:4.6,RON:.057,INR:1,SAR:.045,QAR:.044,OMR:.0046,MVR:.18};
-    COUNTRIES.forEach(c=>{if(fb[c.code])c.rate=fb[c.code]});
-  }
+  try{const r=await fetch('https://open.er-api.com/v6/latest/INR');const d=await r.json();if(d.result==='success'){R=d.rates;COUNTRIES.forEach(c=>{if(R[c.code])c.rate=R[c.code]})}}
+  catch(e){R=FALLBACK_RATES;COUNTRIES.forEach(c=>{if(FALLBACK_RATES[c.code])c.rate=FALLBACK_RATES[c.code]})}
+  COUNTRIES.find(c=>c.code==='INR').rate=1;
   init();
 }
 
-function toINR(a,code){const r=liveRates[code]||COUNTRIES.find(c=>c.code===code)?.rate||1;return r>0?a/r:a}
-function monthlyINR(c){return Math.round(toINR(c.monthly_local,c.code))}
-function studentINR(c){return Math.round(toINR(c.student_monthly,c.code))}
+// ===== WORLD MAP =====
+async function drawMap(){
+  try{
+    const w=960,h=500;
+    const svg=d3.select('#world-map');
+    const proj=d3.geoNaturalEarth1().scale(155).translate([w/2,h/2]);
+    const path=d3.geoPath().projection(proj);
+    const data=await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+    const countries=topojson.feature(data,data.objects.countries);
+    const isoMap={};COUNTRIES.forEach(c=>{isoMap[c.iso]=c});
+    const tip=$('map-tip');
 
-function setupConverter(){
-  const from=document.getElementById('conv-from'),to=document.getElementById('conv-to');
+    svg.selectAll('path').data(countries.features).enter().append('path')
+      .attr('d',path).attr('class',d=>{const iso=isoToA3(+d.id);return'country-path'+(isoMap[iso]?' has-data':'')})
+      .on('mouseenter',(e,d)=>{
+        const iso=isoToA3(+d.id);const c=isoMap[iso];
+        if(c){tip.style.display='block';tip.innerHTML=`${c.flag} <strong>${c.name}</strong><br>\u20B9${fmt(mi(c))}/mo | ${c.visa==='Free'?'Visa Free':c.visa==='Arrival'?'On Arrival':'Visa Required'}`}
+        else{const name=d.properties?.name||'Unknown';tip.style.display='block';tip.innerHTML=`<strong>${name}</strong><br>Data coming soon`}
+      })
+      .on('mousemove',e=>{const r=$('map-wrap').getBoundingClientRect();tip.style.left=(e.clientX-r.left+15)+'px';tip.style.top=(e.clientY-r.top-10)+'px'})
+      .on('mouseleave',()=>{tip.style.display='none'})
+      .on('click',(e,d)=>{const iso=isoToA3(+d.id);const c=isoMap[iso];if(c)showDetail(c.name)});
+
+    // Neon pulse dots for countries with data
+    COUNTRIES.filter(c=>c.code!=='INR').forEach(c=>{
+      const coords=proj([getCoords(c.iso)[1],getCoords(c.iso)[0]]);
+      if(!coords)return;
+      const g=svg.append('g');
+      g.append('circle').attr('class','pulse-ring').attr('cx',coords[0]).attr('cy',coords[1]).attr('r',2).style('animation-delay',Math.random()*2+'s');
+      g.append('circle').attr('class','pulse-dot').attr('cx',coords[0]).attr('cy',coords[1]).attr('r',2);
+    });
+  }catch(e){console.error('Map load failed:',e);$('map-wrap').innerHTML='<p style="text-align:center;padding:3rem;color:var(--dim)">Map loading failed. Please check your internet connection.</p>'}
+}
+
+// ISO numeric to alpha-3
+function isoToA3(n){const m={4:'AFG',8:'ALB',12:'DZA',24:'AGO',32:'ARG',36:'AUS',40:'AUT',50:'BGD',56:'BEL',64:'BTN',68:'BOL',76:'BRA',100:'BGR',104:'MMR',116:'KHM',120:'CMR',124:'CAN',144:'LKA',152:'CHL',156:'CHN',170:'COL',188:'CRI',191:'HRV',196:'CYP',203:'CZE',208:'DNK',218:'ECU',818:'EGY',231:'ETH',233:'EST',242:'FJI',246:'FIN',250:'FRA',266:'GAB',276:'DEU',288:'GHA',300:'GRC',320:'GTM',356:'IND',360:'IDN',364:'IRN',368:'IRQ',372:'IRL',376:'ISR',380:'ITA',392:'JPN',400:'JOR',404:'KEN',410:'KOR',414:'KWT',418:'LAO',422:'LBN',434:'LBY',458:'MYS',462:'MDV',484:'MEX',496:'MNG',504:'MAR',508:'MOZ',524:'NPL',528:'NLD',554:'NZL',566:'NGA',578:'NOR',512:'OMN',586:'PAK',591:'PAN',604:'PER',608:'PHL',616:'POL',620:'PRT',634:'QAT',642:'ROU',643:'RUS',682:'SAU',702:'SGP',710:'ZAF',724:'ESP',752:'SWE',756:'CHE',158:'TWN',764:'THA',788:'TUN',792:'TUR',800:'UGA',784:'ARE',826:'GBR',840:'USA',858:'URY',704:'VNM',887:'YEM',894:'ZMB'};return m[n]||''}
+
+// Approximate lat/lng for pulse dots
+function getCoords(iso){const c={IND:[20,78],THA:[15,100],VNM:[16,108],IDN:[-2,118],MYS:[4,109],PHL:[12,122],KHM:[12,105],NPL:[28,84],LKA:[7,80],JPN:[36,138],KOR:[37,127],SGP:[1,104],TWN:[24,121],CHN:[35,105],BGD:[24,90],MMR:[20,96],LAO:[18,105],MNG:[47,105],MDV:[3,73],PAK:[30,70],TUR:[39,35],GEO:[42,44],PRT:[39,-8],DEU:[51,10],GBR:[54,-2],FRA:[46,2],ESP:[40,-4],ITA:[42,12],NLD:[52,5],SWE:[62,15],NOR:[62,10],CHE:[47,8],CZE:[50,15],POL:[52,20],HUN:[47,19],ROU:[46,25],GRC:[39,22],HRV:[45,16],BGR:[43,25],EST:[59,26],IRL:[53,-8],AUT:[47,14],DNK:[56,10],BEL:[51,4],USA:[38,-97],CAN:[56,-106],MEX:[23,-102],COL:[4,-72],ARG:[-34,-64],BRA:[-15,-47],PER:[-10,-76],CHL:[-35,-71],ECU:[-2,-78],CRI:[10,-84],BOL:[-17,-65],URY:[-33,-56],PAN:[9,-80],EGY:[27,30],MAR:[32,-5],ZAF:[-29,24],KEN:[-1,37],TZA:[-6,35],GHA:[8,-1],ETH:[9,38],NGA:[10,8],TUN:[34,9],ARE:[24,54],SAU:[24,45],QAT:[25,51],OMN:[21,57],BHR:[26,50],JOR:[31,36],ISR:[31,35],AUS:[-25,134],NZL:[-41,174],FJI:[-18,179]};return c[iso]||[0,0]}
+
+// ===== CONVERTER =====
+function setupConv(){
+  const f=$('c-from'),t=$('c-to');
   const codes=[...new Set(COUNTRIES.map(c=>c.code))].sort();
-  codes.forEach(c=>{from.innerHTML+=`<option value="${c}" ${c==='INR'?'selected':''}>${c}</option>`;to.innerHTML+=`<option value="${c}" ${c==='USD'?'selected':''}>${c}</option>`});
-  const calc=()=>{const amt=parseFloat(document.getElementById('conv-amount').value)||0;const f=from.value,t=to.value;const rF=liveRates[f]||COUNTRIES.find(c=>c.code===f)?.rate||1;const rT=liveRates[t]||COUNTRIES.find(c=>c.code===t)?.rate||1;const result=(amt/rF)*rT;document.getElementById('conv-result').innerHTML=`${result.toLocaleString('en-IN',{maximumFractionDigits:2})} ${t}<br><span class="conv-rate">1 ${f} = ${(rT/rF).toFixed(4)} ${t}</span>`};
-  document.getElementById('conv-amount').addEventListener('input',calc);from.addEventListener('change',calc);to.addEventListener('change',calc);calc();
+  codes.forEach(c=>{f.innerHTML+=`<option value="${c}" ${c==='INR'?'selected':''}>${c}</option>`;t.innerHTML+=`<option value="${c}" ${c==='USD'?'selected':''}>${c}</option>`});
+  const calc=()=>{const a=parseFloat($('c-amt').value)||0;const rF=R[f.value]||COUNTRIES.find(c=>c.code===f.value)?.rate||1;const rT=R[t.value]||COUNTRIES.find(c=>c.code===t.value)?.rate||1;const res=(a/rF)*rT;$('c-res').innerHTML=`${fmt(+res.toFixed(2))} ${t.value}<br><span class="conv-sub">1 ${f.value} = ${(rT/rF).toFixed(4)} ${t.value}</span>`};
+  $('c-amt').oninput=calc;f.onchange=calc;t.onchange=calc;calc();
 }
 
+// ===== STATS =====
 function renderStats(){
-  const sorted=[...COUNTRIES].filter(c=>c.code!=='INR').sort((a,b)=>monthlyINR(a)-monthlyINR(b));
-  const ch=sorted[0],ex=sorted[sorted.length-1],vf=COUNTRIES.filter(c=>c.visa==='Visa Free'&&c.code!=='INR').length,tn=[...COUNTRIES].sort((a,b)=>b.nomad-a.nomad)[0];
-  document.getElementById('stat-cards').innerHTML=`
-    <div class="stat-card green"><div class="label">Cheapest Country</div><div class="value">${ch.flag} ${ch.name}</div><div class="sub">\u20B9${monthlyINR(ch).toLocaleString('en-IN')}/month</div></div>
-    <div class="stat-card red"><div class="label">Most Expensive</div><div class="value">${ex.flag} ${ex.name}</div><div class="sub">\u20B9${monthlyINR(ex).toLocaleString('en-IN')}/month</div></div>
-    <div class="stat-card blue"><div class="label">Visa Free for Indians</div><div class="value">${vf} Countries</div><div class="sub">No advance visa needed</div></div>
-    <div class="stat-card purple"><div class="label">Best for Nomads</div><div class="value">${tn.flag} ${tn.name}</div><div class="sub">Score: ${tn.nomad}/100</div></div>`;
+  const s=[...COUNTRIES].filter(c=>c.code!=='INR').sort((a,b)=>mi(a)-mi(b));
+  const ch=s[0],ex=s[s.length-1],vf=COUNTRIES.filter(c=>c.visa==='Free'&&c.code!=='INR').length,tn=[...COUNTRIES].sort((a,b)=>b.nomad-a.nomad)[0];
+  $('stat-cards').innerHTML=`
+    <div class="sc g"><div class="sl">Cheapest Country</div><div class="sv">${ch.flag} ${ch.name}</div><div class="ss">\u20B9${fmt(mi(ch))}/month</div></div>
+    <div class="sc r"><div class="sl">Most Expensive</div><div class="sv">${ex.flag} ${ex.name}</div><div class="ss">\u20B9${fmt(mi(ex))}/month</div></div>
+    <div class="sc b"><div class="sl">Visa Free for Indians</div><div class="sv">${vf} Countries</div><div class="ss">No advance visa needed</div></div>
+    <div class="sc p"><div class="sl">Best for Nomads</div><div class="sv">${tn.flag} ${tn.name}</div><div class="ss">Score: ${tn.nomad}/100</div></div>`;
 }
 
-let currentView='all';
-function costBadge(inr){return inr<30000?'<span class="badge cheap">Cheap</span>':inr<80000?'<span class="badge mid">Medium</span>':'<span class="badge expensive">Expensive</span>'}
-function visaBadge(v){return v==='Visa Free'?`<span class="badge visa-free">${v}</span>`:v==='On Arrival'?`<span class="badge on-arrival">${v}</span>`:v==='Home'?'<span class="badge visa-free">Home</span>':`<span class="badge required">${v}</span>`}
+// ===== VISA EXPLORER =====
+function renderVisa(){
+  const free=COUNTRIES.filter(c=>c.visa==='Free'&&c.code!=='INR').sort((a,b)=>b.vdays-a.vdays);
+  const arr=COUNTRIES.filter(c=>c.visa==='Arrival').sort((a,b)=>b.vdays-a.vdays);
+  const req=COUNTRIES.filter(c=>c.visa==='Required').sort((a,b)=>a.name.localeCompare(b.name));
+  $('visa-grid').innerHTML=`
+    <div class="visa-col vfree"><h4>\u2705 Visa Free (${free.length})</h4>${free.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">${c.vdays}d</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
+    <div class="visa-col varr"><h4>\ud83d\udccb On Arrival (${arr.length})</h4>${arr.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><span class="vdays">${c.vdays}d</span> <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>
+    <div class="visa-col vreq"><h4>\u26a0\ufe0f Visa Required (${req.length})</h4>${req.map(c=>`<div class="visa-item"><span>${c.flag} ${c.name}</span><span><a href="https://en.wikipedia.org/wiki/Visa_requirements_for_Indian_citizens" target="_blank">Know more \u2192</a></span></div>`).join('')}</div>`;
+}
+
+// ===== TABLE =====
+let cv='all';
+function cb(n){return n<30000?'<span class="badge cheap">Cheap</span>':n<80000?'<span class="badge mid">Medium</span>':'<span class="badge exp">Expensive</span>'}
+function vb(v,d){return v==='Free'?`<span class="badge vf">Free</span> <span style="color:var(--dim);font-size:.7rem">${d}d</span>`:v==='Arrival'?`<span class="badge va">Arrival</span> <span style="color:var(--dim);font-size:.7rem">${d}d</span>`:'<span class="badge vr">Required</span>'}
 
 function renderTable(){
-  let data=[...COUNTRIES];const search=document.getElementById('search-input').value.toLowerCase();const region=document.getElementById('region-filter').value;const sort=document.getElementById('sort-by').value;
-  if(search)data=data.filter(c=>c.name.toLowerCase().includes(search));if(region)data=data.filter(c=>c.region===region);
-  if(currentView==='cheapest')data=data.filter(c=>monthlyINR(c)<30000&&c.code!=='INR');if(currentView==='expensive')data=data.filter(c=>monthlyINR(c)>80000);if(currentView==='student')data.sort((a,b)=>studentINR(a)-studentINR(b));if(currentView==='nomad')data.sort((a,b)=>b.nomad-a.nomad);
-  if(sort==='cost-asc')data.sort((a,b)=>monthlyINR(a)-monthlyINR(b));if(sort==='cost-desc')data.sort((a,b)=>monthlyINR(b)-monthlyINR(a));if(sort==='rate')data.sort((a,b)=>b.rate-a.rate);if(sort==='nomad')data.sort((a,b)=>b.nomad-a.nomad);if(sort==='name')data.sort((a,b)=>a.name.localeCompare(b.name));
-  document.getElementById('country-table').innerHTML=data.map(c=>`<tr onclick="showDetail('${c.name}')" style="cursor:pointer"><td><span class="flag">${c.flag}</span>${c.name}</td><td>${c.code}</td><td>${c.rate>0?c.rate.toFixed(c.rate<1?4:2):'-'}</td><td>${costBadge(monthlyINR(c))}</td><td>\u20B9${monthlyINR(c).toLocaleString('en-IN')}${currentView==='student'?` <span style="color:var(--dim);font-size:.75rem">(student: \u20B9${studentINR(c).toLocaleString('en-IN')})</span>`:''}</td><td>${visaBadge(c.visa)}${c.visa_days&&c.visa!=='Home'&&c.visa!=='Required'?` <span style="color:var(--dim);font-size:.72rem">${c.visa_days}d</span>`:''}</td><td>${c.nomad}/100 <div class="nomad-bar"><div class="nomad-fill" style="width:${c.nomad}%;background:${c.nomad>80?'var(--green)':c.nomad>60?'var(--orange)':'var(--red)'}"></div></div></td><td>${c.wifi} Mbps</td></tr>`).join('');
+  let d=[...COUNTRIES];const q=$('q').value.toLowerCase();const rf=$('rf').value;const sb=$('sb').value;
+  if(q)d=d.filter(c=>c.name.toLowerCase().includes(q));
+  if(rf)d=d.filter(c=>c.region===rf);
+  if(cv==='cheapest')d=d.filter(c=>mi(c)<30000&&c.code!=='INR');
+  if(cv==='expensive')d=d.filter(c=>mi(c)>=80000);
+  if(cv==='student')d=d.filter(c=>c.code!=='INR');
+  if(cv==='nomad')d=d.filter(c=>c.nomad>=75);
+  if(cv==='visafree')d=d.filter(c=>c.visa==='Free'&&c.code!=='INR');
+  if(sb==='cost-asc')d.sort((a,b)=>mi(a)-mi(b));
+  if(sb==='cost-desc')d.sort((a,b)=>mi(b)-mi(a));
+  if(sb==='nomad-desc')d.sort((a,b)=>b.nomad-a.nomad);
+  if(sb==='name')d.sort((a,b)=>a.name.localeCompare(b.name));
+  if(cv==='student')d.sort((a,b)=>si(a)-si(b));
+
+  $('ctb').innerHTML=d.map(c=>`<tr onclick="showDetail('${c.name}')">
+    <td><span class="flag">${c.flag}</span>${c.name}</td><td>${c.code}</td>
+    <td>${c.rate>0?c.rate.toFixed(c.rate<1?4:2):'-'}</td><td>${cb(mi(c))}</td>
+    <td>\u20B9${fmt(mi(c))}${cv==='student'?' <span style="color:var(--dim);font-size:.72rem">(stu: \u20B9'+fmt(si(c))+')</span>':''}</td>
+    <td>${c.visa==='Home'?'<span class="badge vf">Home</span>':vb(c.visa,c.vdays)}</td>
+    <td>${c.nomad}/100<div class="nbar"><div class="nfill" style="width:${c.nomad}%;background:${c.nomad>80?'var(--neong)':c.nomad>60?'var(--neony)':'var(--red)'}"></div></div></td>
+    <td>${c.wifi} Mbps</td>
+    <td><a class="know" href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank" onclick="event.stopPropagation()">Wiki \u2192</a></td></tr>`).join('');
 }
 
+// ===== DETAIL =====
 function showDetail(name){
   const c=COUNTRIES.find(x=>x.name===name);if(!c)return;
-  const mi=monthlyINR(c),ri=Math.round(toINR(c.rent,c.code)),fi=Math.round(toINR(c.food,c.code)),ti=Math.round(toINR(c.transport,c.code)),ni=Math.round(toINR(c.internet,c.code)),ei=Math.round(toINR(c.fun,c.code));
-  const sfi=Math.round(toINR(c.street_food,c.code)),rsi=Math.round(toINR(c.restaurant,c.code)),cki=Math.round(toINR(c.cooking,c.code));
-  const indiaM=monthlyINR(COUNTRIES.find(x=>x.code==='INR')),diff=mi-indiaM,pct=((diff/indiaM)*100).toFixed(0);
-  document.getElementById('detail-panel').innerHTML=`
-    <button class="detail-close" onclick="closeDetail()">\u2715</button>
+  const m=mi(c),ri=Math.round(toINR(c.rent,c.code)),fi=Math.round(toINR(c.food,c.code)),ti=Math.round(toINR(c.transport,c.code)),ni=Math.round(toINR(c.net,c.code)),ei=Math.round(toINR(c.fun,c.code));
+  const sfi=Math.round(toINR(c.sf,c.code)),rsi=Math.round(toINR(c.rest,c.code)),cki=Math.round(toINR(c.cook,c.code));
+  const indM=mi(COUNTRIES.find(x=>x.code==='INR')),diff=m-indM,pct=((diff/indM)*100).toFixed(0);
+  $('dp').innerHTML=`<button class="dc" onclick="$('ov').classList.remove('open')">\u2715</button>
     <h3>${c.flag} ${c.name} — Deep Dive</h3>
-    <p style="color:var(--dim);margin-bottom:1.2rem">${diff<0?`<strong style="color:var(--green)">\u20B9${Math.abs(diff).toLocaleString('en-IN')} cheaper</strong> than India (${Math.abs(pct)}% less)`:`<strong style="color:var(--red)">\u20B9${diff.toLocaleString('en-IN')} more expensive</strong> than India (${pct}% more)`} &nbsp;|&nbsp; 1 INR = ${c.rate>0?c.rate.toFixed(c.rate<1?4:2):'-'} ${c.code}</p>
-    <div class="detail-grid">
-      <div class="detail-item"><div class="dlabel">Monthly Total</div><div class="dvalue" style="color:var(--accent)">\u20B9${mi.toLocaleString('en-IN')}</div></div>
-      <div class="detail-item"><div class="dlabel">Student Budget</div><div class="dvalue" style="color:var(--green)">\u20B9${studentINR(c).toLocaleString('en-IN')}</div></div>
-      <div class="detail-item"><div class="dlabel">Rent</div><div class="dvalue">\u20B9${ri.toLocaleString('en-IN')}</div></div>
-      <div class="detail-item"><div class="dlabel">Food</div><div class="dvalue">\u20B9${fi.toLocaleString('en-IN')}</div></div>
-      <div class="detail-item"><div class="dlabel">Transport</div><div class="dvalue">\u20B9${ti.toLocaleString('en-IN')}</div></div>
-      <div class="detail-item"><div class="dlabel">Internet</div><div class="dvalue">\u20B9${ni.toLocaleString('en-IN')}</div></div>
-      <div class="detail-item"><div class="dlabel">Entertainment</div><div class="dvalue">\u20B9${ei.toLocaleString('en-IN')}</div></div>
-      <div class="detail-item"><div class="dlabel">Visa</div><div class="dvalue">${c.visa} ${c.visa_days&&c.visa!=='Home'?'('+c.visa_days+' days)':''}</div></div>
+    <p style="color:var(--dim);margin-bottom:1rem">${diff<0?`<strong style="color:var(--neong)">\u20B9${fmt(Math.abs(diff))} cheaper</strong> than India (${Math.abs(pct)}% less)`:`<strong style="color:var(--red)">\u20B9${fmt(diff)} more expensive</strong> than India (${pct}% more)`} &nbsp;|&nbsp; 1 INR = ${c.rate>0?c.rate.toFixed(c.rate<1?4:2):'-'} ${c.code}
+    &nbsp;|&nbsp; <a href="https://en.wikipedia.org/wiki/${c.wiki}" target="_blank" style="color:var(--neon)">Read more on Wikipedia \u2192</a></p>
+    <div class="dg">
+      <div class="di"><div class="dl">Monthly Total</div><div class="dv" style="color:var(--neon)">\u20B9${fmt(m)}</div></div>
+      <div class="di"><div class="dl">Student Budget</div><div class="dv" style="color:var(--neong)">\u20B9${fmt(si(c))}</div></div>
+      <div class="di"><div class="dl">Rent (1BHK)</div><div class="dv">\u20B9${fmt(ri)}</div></div>
+      <div class="di"><div class="dl">Food</div><div class="dv">\u20B9${fmt(fi)}</div></div>
+      <div class="di"><div class="dl">Transport</div><div class="dv">\u20B9${fmt(ti)}</div></div>
+      <div class="di"><div class="dl">Internet</div><div class="dv">\u20B9${fmt(ni)}</div></div>
+      <div class="di"><div class="dl">Entertainment</div><div class="dv">\u20B9${fmt(ei)}</div></div>
+      <div class="di"><div class="dl">Visa</div><div class="dv">${c.visa==='Home'?'Home':c.visa+' '+(c.vdays?'('+c.vdays+' days)':'')}</div></div>
     </div>
-    <h4 style="margin-top:1.5rem;margin-bottom:.8rem">Food Prices (in INR)</h4>
-    <div class="detail-grid">
-      <div class="detail-item"><div class="dlabel">Street Food (1 meal)</div><div class="dvalue">\u20B9${sfi.toLocaleString('en-IN')}</div></div>
-      <div class="detail-item"><div class="dlabel">Restaurant (1 meal)</div><div class="dvalue">\u20B9${rsi.toLocaleString('en-IN')}</div></div>
-      <div class="detail-item"><div class="dlabel">Monthly Groceries</div><div class="dvalue">\u20B9${cki.toLocaleString('en-IN')}</div></div>
-      <div class="detail-item"><div class="dlabel">Nomad Score</div><div class="dvalue">${c.nomad}/100</div></div>
+    <h4 style="margin-top:1.2rem;margin-bottom:.6rem;font-size:.95rem">Food Prices (INR)</h4>
+    <div class="dg">
+      <div class="di"><div class="dl">Street Food</div><div class="dv">\u20B9${fmt(sfi)}/meal</div></div>
+      <div class="di"><div class="dl">Restaurant</div><div class="dv">\u20B9${fmt(rsi)}/meal</div></div>
+      <div class="di"><div class="dl">Monthly Groceries</div><div class="dv">\u20B9${fmt(cki)}</div></div>
+      <div class="di"><div class="dl">Nomad Score</div><div class="dv">${c.nomad}/100</div></div>
     </div>
-    <h4 style="margin-top:1.5rem;margin-bottom:.8rem">Digital Nomad Info</h4>
-    <div class="detail-grid">
-      <div class="detail-item"><div class="dlabel">WiFi Speed</div><div class="dvalue">${c.wifi} Mbps</div></div>
-      <div class="detail-item"><div class="dlabel">Safety</div><div class="dvalue">${c.safety}/10</div></div>
-      <div class="detail-item"><div class="dlabel">Coworking</div><div class="dvalue">${c.cowork}/10</div></div>
-      <div class="detail-item"><div class="dlabel">Overall Score</div><div class="dvalue">${c.nomad}/100</div></div>
+    <h4 style="margin-top:1.2rem;margin-bottom:.6rem;font-size:.95rem">Digital Nomad</h4>
+    <div class="dg">
+      <div class="di"><div class="dl">WiFi Speed</div><div class="dv">${c.wifi} Mbps</div></div>
+      <div class="di"><div class="dl">Safety</div><div class="dv">${c.safety}/10</div></div>
+      <div class="di"><div class="dl">Coworking</div><div class="dv">${c.cowork}/10</div></div>
+      <div class="di"><div class="dl">Region</div><div class="dv">${c.region}</div></div>
     </div>
-    <h4 style="margin-top:1.5rem;margin-bottom:.5rem">Survival Tips</h4>
-    <p style="color:var(--dim);font-size:.88rem;line-height:1.7">
-      ${c.visa==='Visa Free'?`\u2705 Indians don\u2019t need a visa \u2014 stay up to ${c.visa_days} days.`:c.visa==='On Arrival'?`\ud83d\udccb Visa on arrival available \u2014 ${c.visa_days} days.`:'\u26a0\ufe0f Advance visa required \u2014 apply at the embassy/consulate.'}<br>
-      ${mi<25000?'\ud83d\udc9a Cheaper than India \u2014 perfect for budget travelers.':mi<40000?'\ud83d\udc9b Similar to India or slightly higher \u2014 very manageable.':mi<80000?'\ud83d\udfe0 More expensive than India \u2014 plan your budget carefully.':'\ud83d\udd34 Significantly expensive \u2014 you\u2019ll need solid savings.'}<br>
-      \ud83c\udf10 WiFi ${c.wifi} Mbps \u2014 ${c.wifi>40?'Great for remote work.':c.wifi>20?'Enough for basic work.':'WiFi can be slow \u2014 try cafes or coworking spaces.'}<br>
-      \ud83d\udee1 Safety ${c.safety}/10 \u2014 ${c.safety>=8?'Very safe destination.':c.safety>=6?'Generally safe with normal precautions.':'Exercise extra caution.'}
-    </p>`;
-  document.getElementById('detail-overlay').classList.add('open');
+    <div class="tip-box">
+      ${c.visa==='Free'?'\u2705 Indians can visit visa-free for up to '+c.vdays+' days.':c.visa==='Arrival'?'\ud83d\udccb Visa on arrival available \u2014 '+c.vdays+' days.':'\u26a0\ufe0f Advance visa required. Apply at the nearest embassy.'}<br>
+      ${m<25000?'\ud83d\udc9a Cheaper than India \u2014 excellent for budget travelers and students.':m<40000?'\ud83d\udc9b Similar to India \u2014 very manageable on a moderate budget.':m<80000?'\ud83d\udfe0 More expensive than India \u2014 plan your finances carefully.':'\ud83d\udd34 Significantly expensive \u2014 strong savings recommended.'}<br>
+      \ud83c\udf10 WiFi: ${c.wifi} Mbps \u2014 ${c.wifi>40?'Great for remote work and video calls.':c.wifi>20?'Adequate for basic work. Try cafes for better speeds.':'Connectivity can be unreliable. Consider coworking spaces.'}<br>
+      \ud83d\udee1 Safety: ${c.safety}/10 \u2014 ${c.safety>=8?'Very safe for solo travelers.':c.safety>=6?'Generally safe with normal precautions.':'Exercise extra caution, especially at night.'}
+    </div>`;
+  $('ov').classList.add('open');
 }
-function closeDetail(){document.getElementById('detail-overlay').classList.remove('open')}
-document.getElementById('detail-overlay').addEventListener('click',e=>{if(e.target.id==='detail-overlay')closeDetail()});
+$('ov').onclick=e=>{if(e.target.id==='ov')$('ov').classList.remove('open')};
 
+// ===== SURVIVAL =====
 function renderSurvival(){
-  const sorted=[...COUNTRIES].filter(c=>c.code!=='INR').sort((a,b)=>monthlyINR(a)-monthlyINR(b)).slice(0,12);
-  document.getElementById('survival-cards').innerHTML=sorted.map(c=>{const mi=monthlyINR(c),r=Math.round(toINR(c.rent,c.code)),f=Math.round(toINR(c.food,c.code)),t=Math.round(toINR(c.transport,c.code)),n=Math.round(toINR(c.internet,c.code)),e=Math.round(toINR(c.fun,c.code));
-    return`<div class="survival-card" onclick="showDetail('${c.name}')"><h4>${c.flag} ${c.name} ${visaBadge(c.visa)}</h4>
-      <div class="cost-row"><span>\ud83c\udfe0 Rent</span><span>\u20B9${r.toLocaleString('en-IN')}</span></div>
-      <div class="cost-row"><span>\ud83c\udf7d Food</span><span>\u20B9${f.toLocaleString('en-IN')}</span></div>
-      <div class="cost-row"><span>\ud83d\ude8c Transport</span><span>\u20B9${t.toLocaleString('en-IN')}</span></div>
-      <div class="cost-row"><span>\ud83d\udcf6 Internet</span><span>\u20B9${n.toLocaleString('en-IN')}</span></div>
-      <div class="cost-row"><span>\ud83c\udf89 Fun</span><span>\u20B9${e.toLocaleString('en-IN')}</span></div>
-      <div class="total">\u20B9${mi.toLocaleString('en-IN')}/month</div></div>`}).join('');
+  const s=[...COUNTRIES].filter(c=>c.code!=='INR').sort((a,b)=>mi(a)-mi(b)).slice(0,12);
+  $('sgrid').innerHTML=s.map(c=>{const m=mi(c);return`<div class="scard" onclick="showDetail('${c.name}')"><h4>${c.flag} ${c.name} ${c.visa==='Free'?'<span class="badge vf">Free</span>':c.visa==='Arrival'?'<span class="badge va">Arrival</span>':''}</h4>
+    <div class="crow"><span>\ud83c\udfe0 Rent</span><span>\u20B9${fmt(Math.round(toINR(c.rent,c.code)))}</span></div>
+    <div class="crow"><span>\ud83c\udf7d Food</span><span>\u20B9${fmt(Math.round(toINR(c.food,c.code)))}</span></div>
+    <div class="crow"><span>\ud83d\ude8c Transport</span><span>\u20B9${fmt(Math.round(toINR(c.transport,c.code)))}</span></div>
+    <div class="crow"><span>\ud83d\udcf6 Internet</span><span>\u20B9${fmt(Math.round(toINR(c.net,c.code)))}</span></div>
+    <div class="crow"><span>\ud83c\udf89 Fun</span><span>\u20B9${fmt(Math.round(toINR(c.fun,c.code)))}</span></div>
+    <div class="stotal">\u20B9${fmt(m)}/month</div></div>`}).join('');
 }
 
-function setupFood(){
-  const sel=document.getElementById('food-country-select');COUNTRIES.forEach(c=>{sel.innerHTML+=`<option value="${c.name}" ${c.name==='India'?'selected':''}>${c.flag} ${c.name}</option>`});sel.addEventListener('change',renderFood);renderFood();
-}
+// ===== FOOD =====
+function setupFood(){const s=$('fc');COUNTRIES.forEach(c=>{s.innerHTML+=`<option value="${c.name}" ${c.name==='Thailand'?'selected':''}>${c.flag} ${c.name}</option>`});s.onchange=renderFood;renderFood()}
 function renderFood(){
-  const name=document.getElementById('food-country-select').value,c=COUNTRIES.find(x=>x.name===name),cmp=COUNTRIES.find(x=>x.code==='INR');if(!c)return;
-  const sf=Math.round(toINR(c.street_food,c.code)),rs=Math.round(toINR(c.restaurant,c.code)),ck=Math.round(toINR(c.cooking,c.code));
-  const isf=Math.round(toINR(cmp.street_food,'INR')),irs=Math.round(toINR(cmp.restaurant,'INR')),ick=Math.round(toINR(cmp.cooking,'INR'));
-  document.getElementById('food-grid').innerHTML=`
-    <div class="food-card"><div class="emoji">\ud83c\udf5c</div><h5>Street Food (1 meal)</h5><div class="food-price"><span class="type">${c.flag} ${c.name}</span><span>\u20B9${sf}</span></div><div class="food-price"><span class="type">\ud83c\uddee\ud83c\uddf3 India</span><span>\u20B9${isf}</span></div><div style="margin-top:.5rem;font-size:.8rem;color:${sf<isf?'var(--green)':'var(--red)'}">${sf<isf?'\u2705 Cheaper':'⬆\ufe0f More expensive'} (\u20B9${Math.abs(sf-isf)} diff)</div></div>
-    <div class="food-card"><div class="emoji">\ud83c\udf7d</div><h5>Restaurant (1 meal)</h5><div class="food-price"><span class="type">${c.flag} ${c.name}</span><span>\u20B9${rs}</span></div><div class="food-price"><span class="type">\ud83c\uddee\ud83c\uddf3 India</span><span>\u20B9${irs}</span></div><div style="margin-top:.5rem;font-size:.8rem;color:${rs<irs?'var(--green)':'var(--red)'}">${rs<irs?'\u2705 Cheaper':'⬆\ufe0f More expensive'} (\u20B9${Math.abs(rs-irs)} diff)</div></div>
-    <div class="food-card"><div class="emoji">\ud83d\uded2</div><h5>Monthly Groceries</h5><div class="food-price"><span class="type">${c.flag} ${c.name}</span><span>\u20B9${ck.toLocaleString('en-IN')}</span></div><div class="food-price"><span class="type">\ud83c\uddee\ud83c\uddf3 India</span><span>\u20B9${ick.toLocaleString('en-IN')}</span></div><div style="margin-top:.5rem;font-size:.8rem;color:${ck<ick?'var(--green)':'var(--red)'}">${ck<ick?'\u2705 Cheaper':'⬆\ufe0f More expensive'} (\u20B9${Math.abs(ck-ick).toLocaleString('en-IN')} diff)</div></div>
-    <div class="food-card"><div class="emoji">\ud83d\udcca</div><h5>Daily Food Budget</h5><div class="food-price"><span class="type">Street only</span><span>\u20B9${sf*3}/day</span></div><div class="food-price"><span class="type">Mixed</span><span>\u20B9${Math.round(sf+rs+sf)}/day</span></div><div class="food-price"><span class="type">Home cooking</span><span>\u20B9${Math.round(ck/30)}/day</span></div></div>`;
+  const c=COUNTRIES.find(x=>x.name===$('fc').value),ind=COUNTRIES.find(x=>x.code==='INR');if(!c)return;
+  const sf=Math.round(toINR(c.sf,c.code)),rs=Math.round(toINR(c.rest,c.code)),ck=Math.round(toINR(c.cook,c.code));
+  const isf=ind.sf,irs=ind.rest,ick=ind.cook;
+  $('fgrid').innerHTML=`
+    <div class="fcard"><div class="em">\ud83c\udf5c</div><h5>Street Food</h5><div class="fp"><span>${c.flag}</span><span>\u20B9${sf}</span></div><div class="fp"><span>\ud83c\uddee\ud83c\uddf3</span><span>\u20B9${isf}</span></div><div style="margin-top:.4rem;font-size:.78rem;color:${sf<=isf?'var(--neong)':'var(--red)'}">${sf<=isf?'\u2705 Cheaper':'\u2b06\ufe0f More'} (\u20B9${Math.abs(sf-isf)})</div></div>
+    <div class="fcard"><div class="em">\ud83c\udf7d</div><h5>Restaurant</h5><div class="fp"><span>${c.flag}</span><span>\u20B9${rs}</span></div><div class="fp"><span>\ud83c\uddee\ud83c\uddf3</span><span>\u20B9${irs}</span></div><div style="margin-top:.4rem;font-size:.78rem;color:${rs<=irs?'var(--neong)':'var(--red)'}">${rs<=irs?'\u2705 Cheaper':'\u2b06\ufe0f More'} (\u20B9${Math.abs(rs-irs)})</div></div>
+    <div class="fcard"><div class="em">\ud83d\uded2</div><h5>Groceries/mo</h5><div class="fp"><span>${c.flag}</span><span>\u20B9${fmt(ck)}</span></div><div class="fp"><span>\ud83c\uddee\ud83c\uddf3</span><span>\u20B9${fmt(ick)}</span></div><div style="margin-top:.4rem;font-size:.78rem;color:${ck<=ick?'var(--neong)':'var(--red)'}">${ck<=ick?'\u2705 Cheaper':'\u2b06\ufe0f More'} (\u20B9${fmt(Math.abs(ck-ick))})</div></div>
+    <div class="fcard"><div class="em">\ud83d\udcca</div><h5>Daily Budget</h5><div class="fp"><span>Street only</span><span>\u20B9${sf*3}/day</span></div><div class="fp"><span>Mixed</span><span>\u20B9${sf+rs+sf}/day</span></div><div class="fp"><span>Cooking</span><span>\u20B9${Math.round(ck/30)}/day</span></div></div>`;
 }
 
+// ===== CHARTS =====
 function renderCharts(){
-  const sorted=[...COUNTRIES].filter(c=>c.code!=='INR').sort((a,b)=>monthlyINR(a)-monthlyINR(b));
-  const cheap10=sorted.slice(0,10),exp10=sorted.slice(-10).reverse();
-  const clrs=['#3b82f6','#8b5cf6','#ec4899','#ef4444','#f59e0b','#10b981','#06b6d4','#84cc16','#f97316','#6366f1'];
-  new Chart(document.getElementById('chart-cheapest'),{type:'bar',data:{labels:cheap10.map(c=>c.flag+' '+c.name),datasets:[{label:'Monthly \u20B9',data:cheap10.map(c=>monthlyINR(c)),backgroundColor:clrs.map(c=>c+'cc'),borderColor:clrs,borderWidth:1}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b7a99',callback:v=>'\u20B9'+v.toLocaleString('en-IN')},grid:{color:'rgba(255,255,255,.04)'}},y:{ticks:{color:'#e8ecf4',font:{size:11}},grid:{display:false}}}}});
-  new Chart(document.getElementById('chart-expensive'),{type:'bar',data:{labels:exp10.map(c=>c.flag+' '+c.name),datasets:[{label:'Monthly \u20B9',data:exp10.map(c=>monthlyINR(c)),backgroundColor:'#ef4444cc',borderColor:'#ef4444',borderWidth:1}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b7a99',callback:v=>'\u20B9'+v.toLocaleString('en-IN')},grid:{color:'rgba(255,255,255,.04)'}},y:{ticks:{color:'#e8ecf4',font:{size:11}},grid:{display:false}}}}});
-  const avg=COUNTRIES.find(c=>c.name==='Thailand');
-  if(avg){new Chart(document.getElementById('chart-breakdown'),{type:'doughnut',data:{labels:['Rent','Food','Transport','Internet','Entertainment'],datasets:[{data:[toINR(avg.rent,avg.code),toINR(avg.food,avg.code),toINR(avg.transport,avg.code),toINR(avg.internet,avg.code),toINR(avg.fun,avg.code)].map(Math.round),backgroundColor:['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ec4899'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{labels:{color:'#e8ecf4',padding:12}}}}})}
-  const topN=[...COUNTRIES].sort((a,b)=>b.nomad-a.nomad).slice(0,10);
-  new Chart(document.getElementById('chart-nomad'),{type:'radar',data:{labels:topN.map(c=>c.flag+' '+c.name),datasets:[{label:'Nomad Score',data:topN.map(c=>c.nomad),backgroundColor:'rgba(59,130,246,.2)',borderColor:'#3b82f6',pointBackgroundColor:'#3b82f6'},{label:'WiFi Speed',data:topN.map(c=>c.wifi),backgroundColor:'rgba(16,185,129,.2)',borderColor:'#10b981',pointBackgroundColor:'#10b981'}]},options:{responsive:true,scales:{r:{grid:{color:'rgba(255,255,255,.08)'},ticks:{display:false},pointLabels:{color:'#e8ecf4',font:{size:10}}}},plugins:{legend:{labels:{color:'#e8ecf4'}}}}});
+  const s=[...COUNTRIES].filter(c=>c.code!=='INR').sort((a,b)=>mi(a)-mi(b));
+  const c10=s.slice(0,10),e10=s.slice(-10).reverse();
+  const cl=['#00e5ff','#7c4dff','#e040fb','#ff4081','#ff9100','#39ff14','#ffe600','#00bfa5','#ff6e40','#448aff'];
+  const opts=(axis)=>({indexAxis:axis,responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#5a6a8a',callback:v=>'\u20B9'+fmt(v)},grid:{color:'rgba(0,229,255,.04)'}},y:{ticks:{color:'#e0e6f0',font:{size:10}},grid:{display:false}}}});
+  new Chart($('ch1'),{type:'bar',data:{labels:c10.map(c=>c.flag+' '+c.name),datasets:[{data:c10.map(c=>mi(c)),backgroundColor:cl.map(c=>c+'aa'),borderColor:cl,borderWidth:1}]},options:opts('y')});
+  new Chart($('ch2'),{type:'bar',data:{labels:e10.map(c=>c.flag+' '+c.name),datasets:[{data:e10.map(c=>mi(c)),backgroundColor:'#ff1744aa',borderColor:'#ff1744',borderWidth:1}]},options:opts('y')});
+  const th=COUNTRIES.find(c=>c.name==='Thailand');
+  if(th){new Chart($('ch3'),{type:'doughnut',data:{labels:['Rent','Food','Transport','Internet','Fun'],datasets:[{data:[toINR(th.rent,th.code),toINR(th.food,th.code),toINR(th.transport,th.code),toINR(th.net,th.code),toINR(th.fun,th.code)].map(Math.round),backgroundColor:['#00e5ff','#39ff14','#ffe600','#7c4dff','#ff4081'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{labels:{color:'#e0e6f0',padding:10}}}}})}
+  const tn=[...COUNTRIES].sort((a,b)=>b.nomad-a.nomad).slice(0,10);
+  new Chart($('ch4'),{type:'radar',data:{labels:tn.map(c=>c.flag+' '+c.name),datasets:[{label:'Nomad',data:tn.map(c=>c.nomad),backgroundColor:'rgba(0,229,255,.15)',borderColor:'#00e5ff',pointBackgroundColor:'#00e5ff'},{label:'WiFi',data:tn.map(c=>c.wifi),backgroundColor:'rgba(57,255,20,.15)',borderColor:'#39ff14',pointBackgroundColor:'#39ff14'}]},options:{responsive:true,scales:{r:{grid:{color:'rgba(0,229,255,.08)'},ticks:{display:false},pointLabels:{color:'#e0e6f0',font:{size:9}}}},plugins:{legend:{labels:{color:'#e0e6f0'}}}}});
 }
 
+// ===== INIT =====
 function init(){
-  setupConverter();renderStats();renderTable();renderSurvival();setupFood();renderCharts();
-  document.querySelectorAll('.tab').forEach(t=>{t.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');currentView=t.dataset.view;renderTable()})});
-  document.getElementById('search-input').addEventListener('input',renderTable);
-  document.getElementById('region-filter').addEventListener('change',renderTable);
-  document.getElementById('sort-by').addEventListener('change',renderTable);
+  setupConv();renderStats();renderVisa();renderTable();renderSurvival();setupFood();renderCharts();
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');cv=t.dataset.v;renderTable()});
+  $('q').oninput=renderTable;$('rf').onchange=renderTable;$('sb').onchange=renderTable;
 }
+drawMap();
 fetchRates();
 </script>
 </body>
